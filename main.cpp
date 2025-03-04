@@ -8,6 +8,7 @@
 #include <fstream>
 using namespace std;
 struct InstructionInfo {
+    
     string type;
     uint8_t opcode;
     uint8_t funct3;
@@ -30,7 +31,7 @@ map<string, InstructionInfo> instructionMap = {
     {"addi", {"I", 0x13, 0x0, 0x00}},
     {"addi", {"I", 0x13, 0x0, 0x00}}, 
     {"andi", {"I", 0x13, 0x7, 0x00}}, 
-    {"ori",  {"I", 0x13, 0x6, 0x00}}, 
+    {"ori",  {"I", 0x13, 0x6, 0x00}},
 
     {"lw",   {"I", 0x03, 0x2, 0x00}},
     {"sw",   {"S", 0x23, 0x2, 0x00}},
