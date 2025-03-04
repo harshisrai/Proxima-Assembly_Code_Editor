@@ -40,7 +40,7 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
                                << setw(8) << setfill('0') << num << endl;
                     currentAddress += 4;
                 }
-            } else if ((pos = line.find(".double")) != string::npos) {
+            } else if ((pos = line.find(".dword")) != string::npos) {
                 istringstream values(line.substr(pos + 6));
                 long long num;
                 while (values >> num) {
@@ -64,7 +64,7 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
                                << setw(2) << setfill('0') << num << endl;
                     currentAddress += 1;
                 }
-            } else if ((pos = line.find(".asciiz")) != string::npos) {
+            } else if ((pos = line.find(".asciz")) != string::npos) {
                 size_t start = line.find('"', pos);
                 size_t end = line.rfind('"');
                 if (start != string::npos && end != string::npos && start < end) {
