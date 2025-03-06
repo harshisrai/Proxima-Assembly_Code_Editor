@@ -12,15 +12,11 @@
 0x0000002c: rem x29 x30 x31
 0x00000030: andi x28 x29 -100
 0x00000034: ori x27 x5 69
-0x00000038: lb x10 labelword
-0x00000040: lh x11 labelhalf
-0x00000048: lw x12 labelbyte
-0x00000050: jal x15 branch1
 0x00000054: addi x16 x0 1
 0x00000058: auipc x16 65536
-0x0000005c: sb x8 0 x16
-0x00000060: sw x5 6 x16
-0x00000064: sh x30 -40 x16
+0x0000005c: sb x8 0(x16)
+0x00000060: sw x5 6(x16)
+0x00000064: sh x30 -40(x16)
 0x00000068: beq x5 x6 branch1
 0x0000006c: bne x5 x6 branch2
 0x00000070: bge x8 x9 branch3
@@ -28,8 +24,3 @@
 0x00000078: lui x6  10000
 0x0000007c: jalr x1 x15 0
 
-Labels:
-0x00000058: branch1
-0x00000070: branch2
-0x00000074: branch3
-0x00000078: branch4

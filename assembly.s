@@ -10,9 +10,7 @@ or x4 x2 x3
 #harsh 
 
 
-
-
-sll x5 x3 x2
+sll x5 x3 x2 
 slt x5 x3 x6
 sra x2 x3 x4
 srl x2 x3 x4
