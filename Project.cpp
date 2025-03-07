@@ -3,7 +3,8 @@
 #include <sstream>
 #include <vector>
 #include <iomanip>
-
+#include <string>
+#include <cstdint>
 using namespace std;
 
 const uint32_t DATA_SEGMENT_START = 0x10000000;
@@ -87,6 +88,6 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
 }
 
 int main() {
-    processDataSegment("input.asm", "output.txt");
+    processDataSegment("assembly.s", "output.txt");
     return 0;
 }

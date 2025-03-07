@@ -21,9 +21,6 @@ div x30 x8 x7
 rem x29 x30 x31
 andi x28 x29 -100
 ori x27 x5 69
-lb x10 labelword
-lh x11 labelhalf
-lw x12 labelbyte
 jal x15 branch1
 addi x16 x0 1
 branch1:auipc x16 65536
