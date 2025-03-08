@@ -8,7 +8,7 @@
 #include <iomanip>
 #include <unordered_map>
 #include <fstream>
-#include <cstdint>
+#include <cstdio>
 #include <thread>
 #include <chrono>
 using namespace std;
@@ -19,19 +19,20 @@ unsigned int pcsample = 0x0; // Starting program counter
 // Function to check if a line is an instruction (not .data, labels, or empty lines)
 int lineType(const string &line)
 {
+    
+
     // 1 for instruction, 2 for text labels, 0 for others
     static bool text = false;
     if (line.find(".text") != string::npos)
     {
         text = true;
-        cout << line << endl;
         return 0;
     }
     if (line.empty() || line[0] == '.')
         return 0; // Ignore empty lines and directives
-    if (line.find(':') != string::npos && text == false)
+    if (line.find(':') != string::npos && line[line.size()-1]==':')
         return 0; // Ignore data labels
-    if (line.find(':') != string::npos && text == true)
+    if (line.find(':') != string::npos && line[line.size()-1]!=':')
     {
         // divide in the into two parts - word before: and words afer : and return 2
         size_t pos = line.find(':');
@@ -39,8 +40,8 @@ int lineType(const string &line)
         label.erase(label.find_last_not_of(" ") + 1); // Trim trailing spaces
         // Extract second part (ignoring leading spaces)
         string instruct = line.substr(pos + 1);
-        cout << pcsample << endl;
-        cout << "Label: " << label << " " << "Instruction: " << instruct << endl;
+        // cout << pcsample << endl;
+        // cout << "Label: " << label << " " << "Instruction: " << instruct << endl;
         // if instruction string is empty
         // labels.push_back({pcsample, label});
         labels_sample[label] = pcsample;
@@ -60,7 +61,7 @@ int lineType(const string &line)
             }
         }
         string after = line.substr(pos + 1);
-        cout << "before: " << label << " " << "after: " << after << endl;
+        // cout << "before: " << label << " " << "after: " << after << endl;
         return 2;
     }
     return 1;
@@ -70,8 +71,10 @@ const uint32_t DATA_SEGMENT_START = 0x10000000;
 
 void processDataSegment(const string &inputFileName, const string &outputFileName)
 {
+    
     ifstream inputFile(inputFileName);
     ofstream outputFile(outputFileName);
+    outputFile<<'\n'<<"Memory Address   "<<"Value"<<endl;
 
     if (!inputFile.is_open() || !outputFile.is_open())
     {
@@ -103,7 +106,7 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
                 int num;
                 while (values >> num)
                 {
-                    outputFile << "0x" << hex << uppercase << currentAddress << " 0x"
+                    outputFile << "0x" << hex << uppercase << currentAddress << "     0x"
                                << setw(8) << setfill('0') << num << endl;
                     currentAddress += 4;
                 }
@@ -114,7 +117,7 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
                 long long num;
                 while (values >> num)
                 {
-                    outputFile << "0x" << hex << uppercase << currentAddress << " 0x"
+                    outputFile << "0x" << hex << uppercase << currentAddress << "     0x"
                                << setw(16) << setfill('0') << num << endl;
                     currentAddress += 8;
                 }
@@ -125,7 +128,7 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
                 int num;
                 while (values >> num)
                 {
-                    outputFile << "0x" << hex << uppercase << currentAddress << " 0x"
+                    outputFile << "0x" << hex << uppercase << currentAddress << "     0x"
                                << setw(4) << setfill('0') << num << endl;
                     currentAddress += 2;
                 }
@@ -136,7 +139,7 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
                 int num;
                 while (values >> num)
                 {
-                    outputFile << "0x" << hex << uppercase << currentAddress << " 0x"
+                    outputFile << "0x" << hex << uppercase << currentAddress << "     0x"
                                << setw(2) << setfill('0') << num << endl;
                     currentAddress += 1;
                 }
@@ -150,7 +153,7 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
                     string str = line.substr(start + 1, end - start - 1);
                     for (char c : str)
                     {
-                        outputFile << "0x" << hex << uppercase << currentAddress << " 0x"
+                        outputFile << "0x" << hex << uppercase << currentAddress<< "     0x"
                                    << setw(2) << setfill('0') << (int)c << endl;
                         currentAddress += 1;
                     }
@@ -174,11 +177,7 @@ struct InstructionInfo
     uint8_t funct7;
 };
 string pc;
-map<string, int> labels = {
-    {"branch1", 0x58},
-    {"branch2", 0x70},
-    {"branch3", 0x74},
-    {"branch4", 0x78}};
+map<string, int> labels ;
 map<string, InstructionInfo> instructionMap = {
     //"name" {"type","opcode","funct3",funct7"}
     {"add", {"R", 0x33, 0x0, 0x00}},
@@ -199,6 +198,7 @@ map<string, InstructionInfo> instructionMap = {
     {"addi", {"I", 0x13, 0x0, 0x00}},
     {"andi", {"I", 0x13, 0x7, 0x00}},
     {"ori", {"I", 0x13, 0x6, 0x00}},
+    {"jalr",{"I",0x67,0x0,0x00}},
 
     {"lw", {"I", 0x03, 0x2, 0x00}},
 
@@ -236,6 +236,7 @@ vector<string> tokenize(const string &line)
         }
         tokens.push_back(token);
     }
+   
     return tokens;
 }
 
@@ -273,11 +274,12 @@ int32_t parseImmediate(const string &immStr, string type)
         }
         else if (type == "UJ" || type == "SB")
         {
-            cout << "type: " << type << endl;
+            // cout << "type: " << type << endl;
             int num = stoi(pc, 0, 16);
             imm = labels[immStr] - num;
-            cout << dec << imm << endl;
-            cout << hex << imm << endl;
+            
+            // cout << dec << imm << endl;
+            // cout << hex << imm << endl;
             return imm;
         }
         else
@@ -370,7 +372,7 @@ int main()
         }
         for (auto i : labelmap)
         {
-            cout << i.first << " " << i.second << endl;
+            // cout << i.first << " " << i.second << endl;
         }
     }
     while (getline(inputFileSample, line_sample))
@@ -387,7 +389,6 @@ int main()
         line_sample.erase(line_sample.find_last_not_of(" \t") + 1);
 
         int type = lineType(line_sample);
-
         if (type == 1)
         {
             stringstream ss(line_sample);
@@ -419,6 +420,7 @@ int main()
                 }
                 else
                 {
+                   
                     instructions_sample.push_back({pcsample, line_sample});
                     pcsample += 4;
                 }
@@ -431,21 +433,23 @@ int main()
         }
         else if (type == 2)
         {
-            labels_sample.push_back({pcsample, line_sample});
+            labels[line_sample.substr(0,line_sample.find(':'))] = pcsample;
+            instructions_sample.push_back({pcsample, line_sample.substr(line_sample.find(':')+1,line_sample.size()-1)});
+            pcsample+=4;
         }
     }
 
     // Write to output file with program counter
-    for (const auto &[pcsample_value, instr] : instructions_sample)
+    for (const auto &pair : instructions_sample)
     {
-        outputFileSample << "0x" << hex << setw(8) << setfill('0') << pcsample_value << ": " << instr << endl;
+        outputFileSample << "0x" << hex << setw(8) << setfill('0') << pair.first << ": " << pair.second << endl;
     }
     outputFileSample << endl;
 
     // print label with pcsample
-    for (const auto &[label, pcsample_value] : labels_sample)
+    for (const auto &pair : labels_sample)
     {
-        outputFileSample << "0x" << hex << setw(8) << setfill('0') << pcsample_value << ": " << label << endl;
+        outputFileSample << "0x" << hex << setw(8) << setfill('0') << pair.first << ": " << pair.second << endl;
     }
 
     cout << "Processed assembly instructions saved to input_pc.asm" << endl;
@@ -454,7 +458,7 @@ int main()
 
     // main.cpp starts here
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+    //std::this_thread::sleep_for(std::chrono::seconds(1));
 
     fstream input_file, output_file;
     input_file.open("input_pc.asm", ios::in);
@@ -464,15 +468,14 @@ int main()
         string line;
         output_file.open("output.mc", ios::out);
         // Read data from the file object and put it into a string.
-        output_file << "Machine Code, Assembly Code" << endl;
+        output_file << "Address    Machine Code   Assembly Code" << endl;
         while (getline(input_file, line))
         {
             // cout<<line<<endl;
-            auto tokens = tokenize(line);
+            vector<string> tokens = tokenize(line);
             if (tokens.empty())
             {
-                cerr << "Error: Empty input" << endl;
-                return 1;
+                break;
             }
             pc = tokens[0];
             string op = tokens[1];
@@ -483,6 +486,8 @@ int main()
             }
 
             const auto &info = instructionMap[op];
+            
+
             try
             {
                 uint32_t machine_code = 0;
@@ -519,10 +524,20 @@ int main()
                 }
                 else if (info.type == "S")
                 {
-                    if (tokens.size() != 4)
+                    if (tokens.size() !=4 && tokens.size()!=5)
                     {
                         throw invalid_argument("S-type expects 3 operands");
                     }
+                    if(tokens.size()==5){
+                        vector<string> newtokens(4);
+                        newtokens[0] = tokens[0];
+                        newtokens[1] = tokens[1];
+                        newtokens[2] = tokens[2];
+                        newtokens[3] = tokens[3]+"("+tokens[4]+")";
+                        tokens = newtokens;
+
+                    }
+                    
                     uint8_t rs2 = parseRegister(tokens[2]);
                     string mem = tokens[3];
                     size_t lparen = mem.find('(');
@@ -541,7 +556,11 @@ int main()
                     uint32_t imm_high = (imm12 >> 5) & 0x7F;
                     uint32_t imm_low = imm12 & 0x1F;
                     machine_code = (imm_high << 25) | (rs2 << 20) | (rs1 << 15) | (info.funct3 << 12) | (imm_low << 7) | info.opcode;
-                }
+                
+            
+            }
+
+
                 else if (info.type == "SB")
                 {
                     if (tokens.size() != 5)
@@ -551,6 +570,7 @@ int main()
                     uint8_t rs1 = parseRegister(tokens[2]);
                     uint8_t rs2 = parseRegister(tokens[3]);
                     int32_t imm = parseImmediate(tokens[4], "SB");
+                    
                     if (imm % 2 != 0)
                     {
                         throw invalid_argument("SB offset must be even");
@@ -615,13 +635,13 @@ int main()
                 {
                     throw invalid_argument("Unsupported instruction type: " + info.type);
                 }
-
-                cout << "0x" << hex << machine_code << endl;
-
+                
+                //cout << "0x" << hex << machine_code << endl;
                 // Checking whether the file is open.
                 if (output_file.is_open())
                 {
-                    output_file << "0x" << hex << machine_code << " ," << line << endl; // Inserting text.
+                    //output_file << "0x" << hex << machine_code << " ," << line << endl; // Inserting text.
+                    output_file<<line.substr(0,10)<<"   0x"<<hex<<std::setw(8) << std::setfill('0') <<machine_code<<"    "<<line.substr(11,line.size()-1)<<endl;
                 }
             }
             catch (const exception &e)
@@ -636,48 +656,49 @@ int main()
 
     // main.cpp ends here
 
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
+    //std::this_thread::sleep_for(std::chrono::seconds(1));
     processDataSegment("assembly.s", "output.txt");
 
-    // Open output.txt for reading
-    std::ifstream inputFileCopy("output.txt");
-    if (!inputFileCopy)
-    {
-        std::cerr << "Error: Cannot open output.txt (file may not exist)" << std::endl;
-        return 1;
-    }
+                // Open output.txt for reading
+                std::ifstream inputFileCopy("output.txt");
+                if (!inputFileCopy)
+                {
+                    std::cerr << "Error: Cannot open output.txt (file may not exist)" << std::endl;
+                    return 1;
+                }
+            
+                // Open output.mc in append mode
+                std::ofstream outputFileCopy("output.mc", std::ios::app);
+                if (!outputFileCopy)
+                {
+                    std::cerr << "Error: Cannot open output.mc (check permissions)" << std::endl;
+                    return 1;
+                }
+            
+                std::string line;
+                bool fileEmpty = true;
+            
+                // Read from output.txt and append to output.mc
+                while (std::getline(inputFileCopy, line))
+                {
+                    outputFileCopy << line << std::endl;
+                    fileEmpty = false; // If we read at least one line, the file is not empty
+                }
+            
+                if (fileEmpty)
+                {
+                    std::cerr << "Warning: output.txt is empty, nothing was appended." << std::endl;
+                }
+                else
+                {
+                    std::cout << "✅ Data from output.txt has been appended to output.mc successfully!" << std::endl;
+                }
+            
+                // Close files
+                inputFileCopy.close();
+                outputFileCopy.close();
 
-    // Open output.mc in append mode
-    std::ofstream outputFileCopy("output.mc", std::ios::app);
-    if (!outputFileCopy)
-    {
-        std::cerr << "Error: Cannot open output.mc (check permissions)" << std::endl;
-        return 1;
-    }
-
-    std::string line;
-    bool fileEmpty = true;
-
-    // Read from output.txt and append to output.mc
-    while (std::getline(inputFileCopy, line))
-    {
-        outputFileCopy << line << std::endl;
-        fileEmpty = false; // If we read at least one line, the file is not empty
-    }
-
-    if (fileEmpty)
-    {
-        std::cerr << "Warning: output.txt is empty, nothing was appended." << std::endl;
-    }
-    else
-    {
-        std::cout << "✅ Data from output.txt has been appended to output.mc successfully!" << std::endl;
-    }
-
-    // Close files
-    inputFileCopy.close();
-    outputFileCopy.close();
+   
 
     return 0;
 }
