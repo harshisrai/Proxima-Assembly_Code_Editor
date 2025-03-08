@@ -11,6 +11,9 @@
 #include <cstdio>
 #include <thread>
 #include <chrono>
+#include <stdexcept>
+#include <algorithm>
+#include <bitset>
 using namespace std;
 vector<pair<unsigned int, string>> instructions_sample;
 map<string, unsigned int> labels_sample;
@@ -19,7 +22,6 @@ unsigned int pcsample = 0x0; // Starting program counter
 // Function to check if a line is an instruction (not .data, labels, or empty lines)
 int lineType(const string &line)
 {
-    
 
     // 1 for instruction, 2 for text labels, 0 for others
     static bool text = false;
@@ -30,9 +32,9 @@ int lineType(const string &line)
     }
     if (line.empty() || line[0] == '.')
         return 0; // Ignore empty lines and directives
-    if (line.find(':') != string::npos && line[line.size()-1]==':')
+    if (line.find(':') != string::npos && line[line.size() - 1] == ':')
         return 0; // Ignore data labels
-    if (line.find(':') != string::npos && line[line.size()-1]!=':')
+    if (line.find(':') != string::npos && line[line.size() - 1] != ':')
     {
         // divide in the into two parts - word before: and words afer : and return 2
         size_t pos = line.find(':');
@@ -71,10 +73,11 @@ const uint32_t DATA_SEGMENT_START = 0x10000000;
 
 void processDataSegment(const string &inputFileName, const string &outputFileName)
 {
-    
+
     ifstream inputFile(inputFileName);
     ofstream outputFile(outputFileName);
-    outputFile<<'\n'<<"Memory Address   "<<"Value"<<endl;
+    outputFile << '\n'
+               << "Memory Address   " << "Value" << endl;
 
     if (!inputFile.is_open() || !outputFile.is_open())
     {
@@ -153,7 +156,7 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
                     string str = line.substr(start + 1, end - start - 1);
                     for (char c : str)
                     {
-                        outputFile << "0x" << hex << uppercase << currentAddress<< "     0x"
+                        outputFile << "0x" << hex << uppercase << currentAddress << "     0x"
                                    << setw(2) << setfill('0') << (int)c << endl;
                         currentAddress += 1;
                     }
@@ -177,7 +180,7 @@ struct InstructionInfo
     uint8_t funct7;
 };
 string pc;
-map<string, int> labels ;
+map<string, int> labels;
 map<string, InstructionInfo> instructionMap = {
     //"name" {"type","opcode","funct3",funct7"}
     {"add", {"R", 0x33, 0x0, 0x00}},
@@ -198,7 +201,7 @@ map<string, InstructionInfo> instructionMap = {
     {"addi", {"I", 0x13, 0x0, 0x00}},
     {"andi", {"I", 0x13, 0x7, 0x00}},
     {"ori", {"I", 0x13, 0x6, 0x00}},
-    {"jalr",{"I",0x67,0x0,0x00}},
+    {"jalr", {"I", 0x67, 0x0, 0x00}},
 
     {"lw", {"I", 0x03, 0x2, 0x00}},
 
@@ -236,7 +239,7 @@ vector<string> tokenize(const string &line)
         }
         tokens.push_back(token);
     }
-   
+
     return tokens;
 }
 
@@ -277,7 +280,7 @@ int32_t parseImmediate(const string &immStr, string type)
             // cout << "type: " << type << endl;
             int num = stoi(pc, 0, 16);
             imm = labels[immStr] - num;
-            
+
             // cout << dec << imm << endl;
             // cout << hex << imm << endl;
             return imm;
@@ -296,6 +299,177 @@ int32_t parseImmediate(const string &immStr, string type)
         throw invalid_argument("Invalid immediate: " + immStr);
     }
     return imm;
+}
+
+// This function extracts and returns the instruction fields in the format:
+// <opcode>-<func3>-<func7>-<rd>-<rs1>-<rs2>-<immediate>
+// Where the immediate is:
+//   - "NULL" for R-type
+//   - 12-bit binary for I, S, SB types
+//   - 20-bit binary for U, UJ types
+string extractInstructionFields(const string &instr)
+{
+    // Tokenize the input instruction string.
+    vector<string> tokens = tokenize(instr);
+    if (tokens.empty())
+    {
+        throw invalid_argument("Empty instruction");
+    }
+
+    // The first token is the operation.
+    string op = tokens[0];
+    if (instructionMap.find(op) == instructionMap.end())
+    {
+        throw invalid_argument("Unknown instruction: " + op);
+    }
+    const InstructionInfo &info = instructionMap[op];
+
+    // Get the basic encoding fields from the map.
+    uint32_t opcode = info.opcode; // 7 bits
+    uint32_t func3 = info.funct3;  // 3 bits
+    uint32_t func7 = info.funct7;  // 7 bits
+
+    // Initialize registers and immediate.
+    uint32_t rd = 0, rs1 = 0, rs2 = 0;
+    int32_t imm = 0; // signed immediate
+
+    // Decode based on the instruction type.
+    if (info.type == "R")
+    {
+        // R-type format: op rd rs1 rs2
+        if (tokens.size() != 4)
+        {
+            throw invalid_argument("R-type expects 3 operands");
+        }
+        rd = parseRegister(tokens[1]);
+        rs1 = parseRegister(tokens[2]);
+        rs2 = parseRegister(tokens[3]);
+        // R-type has no immediate.
+    }
+    else if (info.type == "I")
+    {
+        // I-type format: op rd rs1 imm
+        if (tokens.size() != 4)
+        {
+            throw invalid_argument("I-type expects 3 operands");
+        }
+        rd = parseRegister(tokens[1]);
+        rs1 = parseRegister(tokens[2]);
+        imm = parseImmediate(tokens[3], "I");
+        rs2 = 0; // Not used in I-type
+    }
+    else if (info.type == "S")
+    {
+        // S-type (store): could be "op rs2 offset(rs1)" or "op rs2 offset rs1"
+        if (tokens.size() != 3 && tokens.size() != 4)
+        {
+            throw invalid_argument("S-type expects 2 or 3 operands");
+        }
+        string memToken;
+        if (tokens.size() == 3)
+        {
+            rs2 = parseRegister(tokens[1]);
+            memToken = tokens[2];
+        }
+        else
+        {
+            // Merge offset and base register into one token: offset(rs1)
+            rs2 = parseRegister(tokens[1]);
+            memToken = tokens[2] + "(" + tokens[3] + ")";
+        }
+        size_t lparen = memToken.find('(');
+        size_t rparen = memToken.find(')');
+        if (lparen == string::npos || rparen == string::npos || lparen >= rparen)
+        {
+            throw invalid_argument("Invalid memory operand format in S-type");
+        }
+        string offsetStr = memToken.substr(0, lparen);
+        string baseRegStr = memToken.substr(lparen + 1, rparen - lparen - 1);
+        imm = parseImmediate(offsetStr, "S");
+        rs1 = parseRegister(baseRegStr);
+        rd = 0; // S-type does not have rd
+    }
+    else if (info.type == "SB")
+    {
+        // SB-type (branch): op rs1 rs2 offset
+        if (tokens.size() != 4)
+        {
+            throw invalid_argument("SB-type expects 3 operands");
+        }
+        rs1 = parseRegister(tokens[1]);
+        rs2 = parseRegister(tokens[2]);
+        imm = parseImmediate(tokens[3], "SB");
+        rd = 0; // SB-type does not have rd
+    }
+    else if (info.type == "U")
+    {
+        // U-type: op rd imm (e.g. lui, auipc)
+        if (tokens.size() != 3)
+        {
+            throw invalid_argument("U-type expects 2 operands");
+        }
+        rd = parseRegister(tokens[1]);
+        imm = parseImmediate(tokens[2], "U");
+        rs1 = 0;
+        rs2 = 0;
+    }
+    else if (info.type == "UJ")
+    {
+        // UJ-type: op rd offset (e.g. jal)
+        if (tokens.size() != 3)
+        {
+            throw invalid_argument("UJ-type expects 2 operands");
+        }
+        rd = parseRegister(tokens[1]);
+        imm = parseImmediate(tokens[2], "UJ");
+        rs1 = 0;
+        rs2 = 0;
+    }
+    else
+    {
+        throw invalid_argument("Unsupported instruction type: " + info.type);
+    }
+
+    // Convert each field to a binary string with the appropriate width.
+    string opcode_bin = bitset<7>(opcode).to_string();
+    string func3_bin = bitset<3>(func3).to_string();
+    string func7_bin = bitset<7>(func7).to_string();
+    string rd_bin = bitset<5>(rd).to_string();
+    string rs1_bin = bitset<5>(rs1).to_string();
+    string rs2_bin = bitset<5>(rs2).to_string();
+
+    // Determine immediate size based on type and convert accordingly.
+    //  - R  -> "NULL"
+    //  - I/S/SB -> 12 bits
+    //  - U/UJ   -> 20 bits
+    string imm_bin;
+    if (info.type == "R")
+    {
+        imm_bin = "NULL";
+    }
+    else if (info.type == "I" || info.type == "S" || info.type == "SB")
+    {
+        // 12-bit immediate
+        uint32_t imm12 = static_cast<uint32_t>(imm) & 0xFFF; // Lower 12 bits
+        imm_bin = bitset<12>(imm12).to_string();
+    }
+    else if (info.type == "U" || info.type == "UJ")
+    {
+        // 20-bit immediate
+        uint32_t imm20 = static_cast<uint32_t>(imm) & 0xFFFFF; // Lower 20 bits
+        imm_bin = bitset<20>(imm20).to_string();
+    }
+
+    // Assemble the final string in the requested format.
+    string result = opcode_bin + "-" +
+                    func3_bin + "-" +
+                    func7_bin + "-" +
+                    rd_bin + "-" +
+                    rs1_bin + "-" +
+                    rs2_bin + "-" +
+                    imm_bin;
+
+    return result;
 }
 
 int main()
@@ -420,7 +594,7 @@ int main()
                 }
                 else
                 {
-                   
+
                     instructions_sample.push_back({pcsample, line_sample});
                     pcsample += 4;
                 }
@@ -433,13 +607,15 @@ int main()
         }
         else if (type == 2)
         {
-            labels[line_sample.substr(0,line_sample.find(':'))] = pcsample;
-            instructions_sample.push_back({pcsample, line_sample.substr(line_sample.find(':')+1,line_sample.size()-1)});
-            pcsample+=4;
+            labels[line_sample.substr(0, line_sample.find(':'))] = pcsample;
+            instructions_sample.push_back({pcsample, line_sample.substr(line_sample.find(':') + 1, line_sample.size() - 1)});
+            pcsample += 4;
         }
-        else{
-            if(line_sample.find(':')!=string::npos){
-                labels[line_sample.substr(0,line_sample.find(':'))] = pcsample;
+        else
+        {
+            if (line_sample.find(':') != string::npos)
+            {
+                labels[line_sample.substr(0, line_sample.find(':'))] = pcsample;
             }
         }
     }
@@ -463,7 +639,7 @@ int main()
 
     // main.cpp starts here
 
-    //std::this_thread::sleep_for(std::chrono::seconds(1));
+    // std::this_thread::sleep_for(std::chrono::seconds(1));
 
     fstream input_file, output_file;
     input_file.open("input_pc.asm", ios::in);
@@ -473,7 +649,7 @@ int main()
         string line;
         output_file.open("output.mc", ios::out);
         // Read data from the file object and put it into a string.
-        output_file << "Address    Machine Code   Assembly Code" << endl;
+        output_file << "Address       Machine Code     Assembly Code     Opcode-Func3-Func7-rd-rs1-imm" << endl;
         while (getline(input_file, line))
         {
             // cout<<line<<endl;
@@ -491,7 +667,6 @@ int main()
             }
 
             const auto &info = instructionMap[op];
-            
 
             try
             {
@@ -529,20 +704,20 @@ int main()
                 }
                 else if (info.type == "S")
                 {
-                    if (tokens.size() !=4 && tokens.size()!=5)
+                    if (tokens.size() != 4 && tokens.size() != 5)
                     {
                         throw invalid_argument("S-type expects 3 operands");
                     }
-                    if(tokens.size()==5){
+                    if (tokens.size() == 5)
+                    {
                         vector<string> newtokens(4);
                         newtokens[0] = tokens[0];
                         newtokens[1] = tokens[1];
                         newtokens[2] = tokens[2];
-                        newtokens[3] = tokens[3]+"("+tokens[4]+")";
+                        newtokens[3] = tokens[3] + "(" + tokens[4] + ")";
                         tokens = newtokens;
-
                     }
-                    
+
                     uint8_t rs2 = parseRegister(tokens[2]);
                     string mem = tokens[3];
                     size_t lparen = mem.find('(');
@@ -561,10 +736,7 @@ int main()
                     uint32_t imm_high = (imm12 >> 5) & 0x7F;
                     uint32_t imm_low = imm12 & 0x1F;
                     machine_code = (imm_high << 25) | (rs2 << 20) | (rs1 << 15) | (info.funct3 << 12) | (imm_low << 7) | info.opcode;
-                
-            
-            }
-
+                }
 
                 else if (info.type == "SB")
                 {
@@ -575,7 +747,7 @@ int main()
                     uint8_t rs1 = parseRegister(tokens[2]);
                     uint8_t rs2 = parseRegister(tokens[3]);
                     int32_t imm = parseImmediate(tokens[4], "SB");
-                    
+
                     if (imm % 2 != 0)
                     {
                         throw invalid_argument("SB offset must be even");
@@ -623,35 +795,35 @@ int main()
                     {
                         throw invalid_argument("UJ offset must be even");
                     }
-                    if (imm < -524288 || imm > 524287) {  // Ensure 20-bit signed range
+                    if (imm < -524288 || imm > 524287)
+                    { // Ensure 20-bit signed range
                         throw invalid_argument("UJ offset out of range");
                     }
-                    
+
                     uint32_t imm_enc = static_cast<uint32_t>(imm);
-                    
-                    uint32_t imm20    = (imm_enc >> 20) & 0x1;   // Extract imm[20] (sign bit)
-                    uint32_t imm10_1  = (imm_enc >> 1)  & 0x3FF; // Extract imm[10:1]
-                    uint32_t imm11    = (imm_enc >> 11) & 0x1;   // Extract imm[11]
-                    uint32_t imm19_12 = (imm_enc >> 12) & 0xFF;  // Extract imm[19:12]
-                    
+
+                    uint32_t imm20 = (imm_enc >> 20) & 0x1;     // Extract imm[20] (sign bit)
+                    uint32_t imm10_1 = (imm_enc >> 1) & 0x3FF;  // Extract imm[10:1]
+                    uint32_t imm11 = (imm_enc >> 11) & 0x1;     // Extract imm[11]
+                    uint32_t imm19_12 = (imm_enc >> 12) & 0xFF; // Extract imm[19:12]
+
                     // Correctly arrange the immediate fields
                     uint32_t imm_field = (imm20 << 31) | (imm19_12 << 12) | (imm11 << 20) | (imm10_1 << 21);
-                    
+
                     // Generate final machine code
                     machine_code = imm_field | (rd << 7) | info.opcode;
-                    
                 }
                 else
                 {
                     throw invalid_argument("Unsupported instruction type: " + info.type);
                 }
-                
-                //cout << "0x" << hex << machine_code << endl;
-                // Checking whether the file is open.
+
+                // cout << "0x" << hex << machine_code << endl;
+                //  Checking whether the file is open.
                 if (output_file.is_open())
                 {
-                    //output_file << "0x" << hex << machine_code << " ," << line << endl; // Inserting text.
-                    output_file<<line.substr(0,10)<<"   0x"<<hex<<std::setw(8) << std::setfill('0') <<machine_code<<"    "<<line.substr(11,line.size()-1)<<endl;
+                    // output_file << "0x" << hex << machine_code << " ," << line << endl; // Inserting text.
+                    output_file << line.substr(0, 10) << "    0x" << hex << std::setw(8) << std::setfill('0') << machine_code << "      " << line.substr(11, line.size() - 1) << "    # " << extractInstructionFields(line.substr(11, line.size() - 1)) << endl;
                 }
             }
             catch (const exception &e)
@@ -666,49 +838,47 @@ int main()
 
     // main.cpp ends here
 
-    //std::this_thread::sleep_for(std::chrono::seconds(1));
+    // std::this_thread::sleep_for(std::chrono::seconds(1));
     processDataSegment("assembly.s", "output.txt");
 
-                // Open output.txt for reading
-                std::ifstream inputFileCopy("output.txt");
-                if (!inputFileCopy)
-                {
-                    std::cerr << "Error: Cannot open output.txt (file may not exist)" << std::endl;
-                    return 1;
-                }
-            
-                // Open output.mc in append mode
-                std::ofstream outputFileCopy("output.mc", std::ios::app);
-                if (!outputFileCopy)
-                {
-                    std::cerr << "Error: Cannot open output.mc (check permissions)" << std::endl;
-                    return 1;
-                }
-            
-                std::string line;
-                bool fileEmpty = true;
-            
-                // Read from output.txt and append to output.mc
-                while (std::getline(inputFileCopy, line))
-                {
-                    outputFileCopy << line << std::endl;
-                    fileEmpty = false; // If we read at least one line, the file is not empty
-                }
-            
-                if (fileEmpty)
-                {
-                    std::cerr << "Warning: output.txt is empty, nothing was appended." << std::endl;
-                }
-                else
-                {
-                    std::cout << "✅ Data from output.txt has been appended to output.mc successfully!" << std::endl;
-                }
-            
-                // Close files
-                inputFileCopy.close();
-                outputFileCopy.close();
+    // Open output.txt for reading
+    std::ifstream inputFileCopy("output.txt");
+    if (!inputFileCopy)
+    {
+        std::cerr << "Error: Cannot open output.txt (file may not exist)" << std::endl;
+        return 1;
+    }
 
-   
+    // Open output.mc in append mode
+    std::ofstream outputFileCopy("output.mc", std::ios::app);
+    if (!outputFileCopy)
+    {
+        std::cerr << "Error: Cannot open output.mc (check permissions)" << std::endl;
+        return 1;
+    }
+
+    std::string line;
+    bool fileEmpty = true;
+
+    // Read from output.txt and append to output.mc
+    while (std::getline(inputFileCopy, line))
+    {
+        outputFileCopy << line << std::endl;
+        fileEmpty = false; // If we read at least one line, the file is not empty
+    }
+
+    if (fileEmpty)
+    {
+        std::cerr << "Warning: output.txt is empty, nothing was appended." << std::endl;
+    }
+    else
+    {
+        std::cout << "✅ Data from output.txt has been appended to output.mc successfully!" << std::endl;
+    }
+
+    // Close files
+    inputFileCopy.close();
+    outputFileCopy.close();
 
     return 0;
 }

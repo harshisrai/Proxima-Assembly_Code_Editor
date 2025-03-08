@@ -4,6 +4,7 @@ labelhalf:.half 6 7 8
 labelbyte:.byte 0 1 2
 
 .text
+add x1 x2 x3
 addi x2 x0 1
 add x3 x2 x2
 or x4 x2 x3
