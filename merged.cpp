@@ -437,6 +437,11 @@ int main()
             instructions_sample.push_back({pcsample, line_sample.substr(line_sample.find(':')+1,line_sample.size()-1)});
             pcsample+=4;
         }
+        else{
+            if(line_sample.find(':')!=string::npos){
+                labels[line_sample.substr(0,line_sample.find(':'))] = pcsample;
+            }
+        }
     }
 
     // Write to output file with program counter
@@ -618,18 +623,23 @@ int main()
                     {
                         throw invalid_argument("UJ offset must be even");
                     }
-                    int32_t shifted_imm = imm / 2;
-                    if (shifted_imm < -524288 || shifted_imm > 524287)
-                    {
+                    if (imm < -524288 || imm > 524287) {  // Ensure 20-bit signed range
                         throw invalid_argument("UJ offset out of range");
                     }
-                    uint32_t imm_enc = static_cast<uint32_t>(shifted_imm);
-                    uint32_t imm20 = (imm_enc >> 19) & 0x1;
-                    uint32_t imm10_1 = imm_enc & 0x3FF;
-                    uint32_t imm11 = (imm_enc >> 10) & 0x1;
-                    uint32_t imm19_12 = (imm_enc >> 11) & 0xFF;
-                    uint32_t imm_field = (imm20 << 19) | (imm19_12 << 11) | (imm11 << 10) | imm10_1;
-                    machine_code = (imm_field << 12) | (rd << 7) | info.opcode;
+                    
+                    uint32_t imm_enc = static_cast<uint32_t>(imm);
+                    
+                    uint32_t imm20    = (imm_enc >> 20) & 0x1;   // Extract imm[20] (sign bit)
+                    uint32_t imm10_1  = (imm_enc >> 1)  & 0x3FF; // Extract imm[10:1]
+                    uint32_t imm11    = (imm_enc >> 11) & 0x1;   // Extract imm[11]
+                    uint32_t imm19_12 = (imm_enc >> 12) & 0xFF;  // Extract imm[19:12]
+                    
+                    // Correctly arrange the immediate fields
+                    uint32_t imm_field = (imm20 << 31) | (imm19_12 << 12) | (imm11 << 20) | (imm10_1 << 21);
+                    
+                    // Generate final machine code
+                    machine_code = imm_field | (rd << 7) | info.opcode;
+                    
                 }
                 else
                 {
