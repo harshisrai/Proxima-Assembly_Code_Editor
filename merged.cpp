@@ -47,12 +47,14 @@ int lineType(const string &line)
         // if instruction string is empty
         // labels.push_back({pcsample, label});
         labels_sample[label] = pcsample;
+        cout<<label<<" "<<labels_sample[label]<<endl;
         if (!instruct.empty())
         {
             instructions_sample.push_back({pcsample, instruct});
             stringstream ss(instruct);
             string opcode;
             ss >> opcode;
+            cout<<"tamasha "<<opcode<<endl;
             if (opcode == "lw" || opcode == "lh" || opcode == "lb" || opcode == "ld")
             {
                 pcsample += 8;
@@ -203,6 +205,9 @@ map<string, InstructionInfo> instructionMap = {
     {"jalr", {"I", 0x67, 0x0, 0x00}},
     {"xori", {"I", 0x13, 0x4, 0x00}},
     {"lw", {"I", 0x03, 0x2, 0x00}},
+    {"slli",{"I",0x13,0x1,0x00}},
+    {"srai",{"I", 0x13,0x5,0x20}},
+    {"srli",{"I", 0x13,0x5,0x00}},
 
     {"sw", {"S", 0x23, 0x2, 0x00}},
     {"sb", {"S", 0x23, 0x0, 0x00}},
@@ -245,7 +250,7 @@ vector<string> tokenize(const string &line)
 
 uint8_t parseRegister(const string &reg)
 {
-    if (reg.empty() || reg[0] != 'x')
+    if (reg.empty() || !(reg[0] == 'x' ||  reg[0] == 't' ||  reg[0] == 'a'))
     {
         throw invalid_argument("Invalid register: " + reg);
     }
@@ -285,7 +290,11 @@ int32_t parseImmediate(const string &immStr, string type)
         {
             // cout << "type: " << type << endl;
             int num = stoi(pc, 0, 16);
-            imm = labels[immStr] - num;
+            int num2=labels[immStr];
+            if(num2==0){
+                throw invalid_argument("Label not found: " + immStr);
+            }
+            imm = num2 - num;
 
             // cout << dec << imm << endl;
             // cout << hex << imm << endl;
@@ -816,6 +825,8 @@ int main()
                     uint8_t rd = parseRegister(tokens[2]);
                     uint8_t rs1 = parseRegister(tokens[3]);
                     int32_t imm = parseImmediate(tokens[4], "I");
+                    cout<<op<<endl;
+                    cout<<line<<endl;
                     if (imm < -2048 || imm > 2047)
                     {
                         throw invalid_argument("I-type immediate out of range");
