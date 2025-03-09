@@ -105,7 +105,10 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
             size_t pos;
             if ((pos = line.find(".word")) != string::npos)
             {
-                istringstream values(line.substr(pos + 5));
+                string str = line.substr(pos+5);
+                replace(str.begin(),str.end(),',',' ');
+
+                istringstream values(str);
                 int num;
                 while (values >> num)
                 {
@@ -116,7 +119,9 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
             }
             else if ((pos = line.find(".dword")) != string::npos)
             {
-                istringstream values(line.substr(pos + 6));
+                string str = line.substr(pos+6);
+                replace(str.begin(),str.end(),',',' ');
+                istringstream values(str);
                 long long num;
                 while (values >> num)
                 {
@@ -127,7 +132,9 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
             }
             else if ((pos = line.find(".half")) != string::npos)
             {
-                istringstream values(line.substr(pos + 5));
+                string str = line.substr(pos+5);
+                replace(str.begin(),str.end(),',',' ');
+                istringstream values(str);
                 int num;
                 while (values >> num)
                 {
@@ -138,7 +145,9 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
             }
             else if ((pos = line.find(".byte")) != string::npos)
             {
-                istringstream values(line.substr(pos + 5));
+                string str = line.substr(pos+5);
+                replace(str.begin(),str.end(),',',' ');
+                istringstream values(str);
                 int num;
                 while (values >> num)
                 {
