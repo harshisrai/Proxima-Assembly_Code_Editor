@@ -258,7 +258,8 @@ vector<string> tokenize(const string &line)
 
 uint8_t parseRegister(const string &reg)
 {
-    if (reg.empty() || !(reg[0] == 'x' || reg[0] == 't' || reg[0] == 'a'))
+    //cout<<reg<<endl;
+    if (reg.empty() || !(reg[0] == 'x' ||  reg[0] == 't' ||  reg[0] == 'a'))
     {
         throw invalid_argument("Invalid register: " + reg);
     }
@@ -342,11 +343,13 @@ string extractInstructionFields(const string &instr)
 
     // The first token is the operation.
     string op = tokens[0];
+    
     if (instructionMap.find(op) == instructionMap.end())
     {
         throw invalid_argument("Unknown instruction: " + op);
     }
     const InstructionInfo &info = instructionMap[op];
+    
 
     // Get the basic encoding fields from the map.
     uint32_t opcode = info.opcode; // 7 bits
@@ -390,10 +393,18 @@ string extractInstructionFields(const string &instr)
             newTokens[2] = tokens[2].substr(parenPos + 1, tokens[2].size() - parenPos - 2);
             tokens = newTokens;
         }
+        cout<<op<<" "<<tokens[1]<<" "<<tokens[2]<<" "<<tokens[3]<<endl;
+        if(op=="lw"||op=="ld"||op=="lh"||op=="lb"){
+        
+            rd = parseRegister(tokens[1]);
+            rs1 = parseRegister(tokens[3]);
+            imm = parseImmediate(tokens[2],"I");
+        }
+        else{
         rd = parseRegister(tokens[1]);
         rs1 = parseRegister(tokens[2]);
         imm = parseImmediate(tokens[3], "I");
-    }
+    }}
     else if (info.type == "S")
     {
         // S-type (store): could be "op rs2 offset(rs1)" or "op rs2 offset rs1"
@@ -539,7 +550,7 @@ string extractInstructionFields(const string &instr)
 
 int main()
 {
-    ifstream inputFileSample("input01.asm");       // Input assembly file
+    ifstream inputFileSample("input01.asm");         // Input assembly file
     ofstream outputFileSample("refined_code.asm"); // Output file with PC
 
     if (!inputFileSample || !outputFileSample)
@@ -624,7 +635,7 @@ int main()
         {
             line_sample = line_sample.substr(0, commentPos);
         }
-
+        replace(line_sample.begin(),line_sample.end(),',',' ');
         // Trim leading and trailing spaces
         line_sample.erase(0, line_sample.find_first_not_of(" \t"));
         line_sample.erase(line_sample.find_last_not_of(" \t") + 1);
@@ -649,8 +660,16 @@ int main()
                     itislabel = false;
                 }
                 else
-                {
-                    itislabel = true;
+              {
+                    
+                    itislabel = false;
+                for (char ch:label){
+                        if(!isdigit(ch)){
+                            itislabel = true;
+                            break;
+                        }
+                }
+                    
                 }
                 if (itislabel)
                 {
@@ -846,8 +865,8 @@ int main()
                     uint8_t rd = parseRegister(tokens[2]);
                     uint8_t rs1 = parseRegister(tokens[3]);
                     int32_t imm = parseImmediate(tokens[4], "I");
-                    cout << op << endl;
-                    cout << line << endl;
+                    cout<<op<<endl;
+                    cout<<line<<endl;
                     if (imm < -2048 || imm > 2047)
                     {
                         throw invalid_argument("I-type immediate out of range");
