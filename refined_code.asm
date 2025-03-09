@@ -1,10 +1,15 @@
-0x00000000: sub x4, x5, x6
-0x00000004: sll x7, x8, x9
-0x00000008: slt x10, x11, x12
-0x0000000c: sltu x13, x14, x15
-0x00000010: xor x16, x17, x18
-0x00000014: srl x19, x20, x21
-0x00000018: sra x22, x23, x24
-0x0000001c: or x25, x26, x27
-0x00000020: and x28, x29, x30
+0x0: addi t3  x0  0x100
+0x4: slli t3  t3  20
+0x8: addi t0  x0  0
+0xc: addi t1  x0  1
+0x10: sw t0  0(a2)
+0x14: addi a1  a1  -1
+0x18: addi a2  a2  4
+0x1c: sw t1  0(a2)
+0x20: addi a1  a1  -1
+0x24: add t2  t1  t0
+0x28: addi a2  a2  4
+0x2c: sw t2  0(a2)
+0x30: addi a1  a1  -1
+0x34: jal x0 keep_looping
 
