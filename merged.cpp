@@ -521,7 +521,7 @@ string extractInstructionFields(const string &instr)
 
 int main()
 {
-    ifstream inputFileSample("input.asm");         // Input assembly file
+    ifstream inputFileSample("input01.asm");         // Input assembly file
     ofstream outputFileSample("refined_code.asm"); // Output file with PC
 
     if (!inputFileSample || !outputFileSample)

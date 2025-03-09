@@ -9,7 +9,7 @@ _start:
 
     # R-type instructions
     label2:add x0, x0, x0
-    add  x1, x2, x3   # Addition
+    add  x1,x2,x3   # Addition
     sub  x4, x5, x6   # Subtraction
     sll  x7, x8, x9   # Shift left
     slt  x10, x11, x12  # Set if less than
