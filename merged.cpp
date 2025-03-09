@@ -641,6 +641,22 @@ int main()
                     pcsample += 4;
                 }
             }
+            else if(opname=="la"){
+                string reg;
+                ss >> reg;
+                string label;
+                ss >> label;
+                instructions_sample.push_back({pcsample, "auipc " + reg + " 65536"});
+                pcsample += 4;
+                instructions_sample.push_back({pcsample, "addi " + reg + " "+reg+" " + to_string(labelmap[label] - 268435456 - (pcsample - 4))});
+                pcsample += 4;
+            }
+            else if(opname=="j"){
+                string label;
+                ss >> label;
+                instructions_sample.push_back({pcsample, "jal x0 " + to_string(labelmap[label] - 268435456 - (pcsample + 4))});
+                pcsample += 4;
+            }
             else
             {
                 instructions_sample.push_back({pcsample, line_sample});
@@ -884,6 +900,7 @@ int main()
                 return 1;
             }
         }
+        output_file<<"0x8   #end of text segment"<<endl;
         output_file.close(); // Close the file object.
         input_file.close();
     }
@@ -891,7 +908,7 @@ int main()
     // main.cpp ends here
 
     // std::this_thread::sleep_for(std::chrono::seconds(1));
-    processDataSegment("assembly.s", "output.txt");
+    processDataSegment("input.asm", "output.txt");
 
     // Open output.txt for reading
     std::ifstream inputFileCopy("output.txt");
