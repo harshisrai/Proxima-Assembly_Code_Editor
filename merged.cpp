@@ -275,6 +275,13 @@ int32_t parseImmediate(const string &immStr, string type)
         {
             imm = stoi(immStr, &pos, 16);
         }
+        else if (immStr.size() > 2 && immStr.substr(0, 2) == "0b")
+        {
+            cout<<"binary"<<endl;
+            cout<<immStr.substr(2)<<endl;
+            imm = stoi(immStr.substr(2), &pos, 2);
+            pos+=2;
+        }
         else if (type == "UJ" || type == "SB")
         {
             // cout << "type: " << type << endl;
