@@ -236,6 +236,19 @@ map<string, InstructionInfo> instructionMap = {
 
 };
 
+unordered_map<string, string> registerMap = {
+        {"t0", "x5"},  {"t1", "x6"},  {"t2", "x7"},
+        {"s0", "x8"},  {"s1", "x9"},  {"a0", "x10"},
+        {"a1", "x11"}, {"a2", "x12"}, {"a3", "x13"},
+        {"a4", "x14"}, {"a5", "x15"}, {"a6", "x16"},
+        {"a7", "x17"}, {"s2", "x18"}, {"s3", "x19"},
+        {"s4", "x20"}, {"s5", "x21"}, {"s6", "x22"},
+        {"s7", "x23"}, {"s8", "x24"}, {"s9", "x25"},
+        {"s10", "x26"}, {"s11", "x27"}, {"t3", "x28"},
+        {"t4", "x29"}, {"t5", "x30"}, {"t6", "x31"}
+    };
+
+
 vector<string> tokenize(const string &line)
 {
     vector<string> tokens;
@@ -263,6 +276,7 @@ uint8_t parseRegister(const string &reg)
     {
         throw invalid_argument("Invalid register: " + reg);
     }
+    
     int num;
     try
     {
@@ -272,10 +286,31 @@ uint8_t parseRegister(const string &reg)
     {
         throw invalid_argument("Invalid register: " + reg);
     }
-    if (num < 0 || num > 31)
-    {
+    if(reg[0]=='x'){
+        if (num < 0 || num > 31)
+        {
         throw invalid_argument("Register out of range: " + reg);
+        }
     }
+    else if(reg[0]=='t'){
+        if (num < 0 || num > 6)
+        {
+        throw invalid_argument("Register out of range: " + reg);
+        }
+        //reg in registermap
+        auto str=registerMap[reg];
+        num=stoi(str.substr(1));
+    
+    }
+    else if(reg[0]=='a'){
+        if (num < 0 || num > 10)
+        {
+        throw invalid_argument("Register out of range: " + reg);
+        }
+        auto str=registerMap[reg];
+        num=stoi(str.substr(1));
+    }
+
     return static_cast<uint8_t>(num);
 }
 
