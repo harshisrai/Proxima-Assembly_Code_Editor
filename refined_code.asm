@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 0x0: add x0, x0, x0
 0x4: add  x1, x2, x3
 0x8: sub  x4, x5, x6
@@ -223,4 +224,3 @@
 0x378: auipc x10, 0x7FFFF
 0x37c: jal  x1, label_forward
 0x380: jalr x2, x3, -4
-

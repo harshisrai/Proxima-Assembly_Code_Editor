@@ -332,12 +332,12 @@ string extractInstructionFields(const string &instr)
 
     // Get the basic encoding fields from the map.
     uint32_t opcode = info.opcode; // 7 bits
-    uint32_t func3  = info.funct3; // 3 bits
-    uint32_t func7  = info.funct7; // 7 bits
+    uint32_t func3 = info.funct3;  // 3 bits
+    uint32_t func7 = info.funct7;  // 7 bits
 
     // Initialize registers and immediate.
     uint32_t rd = 0, rs1 = 0, rs2 = 0;
-    int32_t  imm = 0; // signed immediate
+    int32_t imm = 0; // signed immediate
 
     // Decode based on the instruction type.
     if (info.type == "R")
@@ -347,7 +347,7 @@ string extractInstructionFields(const string &instr)
         {
             throw invalid_argument("R-type expects 3 operands");
         }
-        rd  = parseRegister(tokens[1]);
+        rd = parseRegister(tokens[1]);
         rs1 = parseRegister(tokens[2]);
         rs2 = parseRegister(tokens[3]);
         // R-type has no immediate -> handled below as imm_bin = "NULL"
@@ -363,16 +363,16 @@ string extractInstructionFields(const string &instr)
         if (tokens.size() == 3)
         {
             vector<string> newTokens(4);
-            newTokens[0] = tokens[0];                      // op
-            newTokens[1] = tokens[1];                      // rd
+            newTokens[0] = tokens[0]; // op
+            newTokens[1] = tokens[1]; // rd
             // e.g. tokens[2] = "100(x2)"
             size_t parenPos = tokens[2].find('(');
-            newTokens[3] = tokens[2].substr(0, parenPos);  // imm
+            newTokens[3] = tokens[2].substr(0, parenPos); // imm
             // e.g. inside parentheses is x2
             newTokens[2] = tokens[2].substr(parenPos + 1, tokens[2].size() - parenPos - 2);
             tokens = newTokens;
         }
-        rd  = parseRegister(tokens[1]);
+        rd = parseRegister(tokens[1]);
         rs1 = parseRegister(tokens[2]);
         imm = parseImmediate(tokens[3], "I");
     }
@@ -386,13 +386,13 @@ string extractInstructionFields(const string &instr)
         string memToken;
         if (tokens.size() == 3)
         {
-            rs2     = parseRegister(tokens[1]);
+            rs2 = parseRegister(tokens[1]);
             memToken = tokens[2];
         }
         else
         {
             // Merge offset and base register into one token: offset(rs1)
-            rs2     = parseRegister(tokens[1]);
+            rs2 = parseRegister(tokens[1]);
             memToken = tokens[2] + "(" + tokens[3] + ")";
         }
         size_t lparen = memToken.find('(');
@@ -401,7 +401,7 @@ string extractInstructionFields(const string &instr)
         {
             throw invalid_argument("Invalid memory operand format in S-type");
         }
-        string offsetStr  = memToken.substr(0, lparen);
+        string offsetStr = memToken.substr(0, lparen);
         string baseRegStr = memToken.substr(lparen + 1, rparen - lparen - 1);
         imm = parseImmediate(offsetStr, "S");
         rs1 = parseRegister(baseRegStr);
@@ -424,7 +424,7 @@ string extractInstructionFields(const string &instr)
         {
             throw invalid_argument("U-type expects 2 operands");
         }
-        rd  = parseRegister(tokens[1]);
+        rd = parseRegister(tokens[1]);
         imm = parseImmediate(tokens[2], "U");
     }
     else if (info.type == "UJ")
@@ -434,7 +434,7 @@ string extractInstructionFields(const string &instr)
         {
             throw invalid_argument("UJ-type expects 2 operands");
         }
-        rd  = parseRegister(tokens[1]);
+        rd = parseRegister(tokens[1]);
         imm = parseImmediate(tokens[2], "UJ");
     }
     else
@@ -456,29 +456,29 @@ string extractInstructionFields(const string &instr)
     // First, convert everything to bitsets by default.
     string func3_bin = bitset<3>(func3).to_string();
     string func7_bin = bitset<7>(func7).to_string();
-    string rd_bin    = bitset<5>(rd).to_string();
-    string rs1_bin   = bitset<5>(rs1).to_string();
-    string rs2_bin   = bitset<5>(rs2).to_string();
+    string rd_bin = bitset<5>(rd).to_string();
+    string rs1_bin = bitset<5>(rs1).to_string();
+    string rs2_bin = bitset<5>(rs2).to_string();
 
     // Then override with "NULL" if the instruction type doesn't use them:
     if (info.type == "I")
     {
-        func7_bin = "NULL";  // I-type does not use func7
-        rs2_bin   = "NULL";  // I-type does not use rs2
+        func7_bin = "NULL"; // I-type does not use func7
+        rs2_bin = "NULL";   // I-type does not use rs2
     }
     else if (info.type == "S")
     {
-        rd_bin = "NULL";     // S-type does not use rd
+        rd_bin = "NULL"; // S-type does not use rd
     }
     else if (info.type == "SB")
     {
-        rd_bin = "NULL";     // SB-type (branch) does not use rd
+        rd_bin = "NULL"; // SB-type (branch) does not use rd
     }
     else if (info.type == "U" || info.type == "UJ")
     {
         // U and UJ do not use rs1, rs2, func3, func7
-        rs1_bin   = "NULL";
-        rs2_bin   = "NULL";
+        rs1_bin = "NULL";
+        rs2_bin = "NULL";
         func3_bin = "NULL";
         func7_bin = "NULL";
     }
@@ -509,20 +509,19 @@ string extractInstructionFields(const string &instr)
     // Assemble final string
     // -------------------------
     string result = opcode_bin + "-" +
-                    func3_bin  + "-" +
-                    func7_bin  + "-" +
-                    rd_bin     + "-" +
-                    rs1_bin    + "-" +
-                    rs2_bin    + "-" +
+                    func3_bin + "-" +
+                    func7_bin + "-" +
+                    rd_bin + "-" +
+                    rs1_bin + "-" +
+                    rs2_bin + "-" +
                     imm_bin;
 
     return result;
 }
 
-
 int main()
 {
-    ifstream inputFileSample("input01.asm");    // Input assembly file
+    ifstream inputFileSample("input.asm");         // Input assembly file
     ofstream outputFileSample("refined_code.asm"); // Output file with PC
 
     if (!inputFileSample || !outputFileSample)
@@ -647,6 +646,63 @@ int main()
                     pcsample += 4;
                 }
             }
+            else if (opname == "la")
+            {
+                string reg;
+                ss >> reg;
+                string label;
+                ss >> label;
+                instructions_sample.push_back({pcsample, "auipc " + reg + " 65536"});
+                pcsample += 4;
+                instructions_sample.push_back({pcsample, "addi " + reg + " " + reg + " " + to_string(labelmap[label] - 268435456 - (pcsample - 4))});
+                pcsample += 4;
+            }
+            else if (opname == "j")
+            {
+                string label;
+                ss >> label;
+                instructions_sample.push_back({pcsample, "jal x0 " + to_string(labelmap[label] - 268435456 - (pcsample + 4))});
+                pcsample += 4;
+            }
+            else if (opname == "li")
+            {
+                string reg;
+                ss >> reg;
+                string imm;
+                ss >> imm;
+                // check if imm is within 12 bits (signed)
+                int imm_val = stoi(imm);
+                if (imm_val > 2047 || imm_val < -2048)
+                {
+                    instructions_sample.push_back({pcsample, "addi " + reg + " x0 " + imm});
+                    pcsample += 4;
+                }
+                else
+                {
+                    instructions_sample.push_back({pcsample, "lui " + reg + " " + to_string(imm_val >> 12)});
+                    pcsample += 4;
+                    instructions_sample.push_back({pcsample, "addi " + reg + " " + reg + " " + to_string(imm_val & 0xFFF)});
+                    pcsample += 4;
+                }
+            }
+            else if (opname == "beqz")
+            {
+                string reg;
+                ss >> reg;
+                string label;
+                ss >> label;
+                instructions_sample.push_back({pcsample, "beq " + reg + " x0 " + to_string(labelmap[label] - 268435456 - (pcsample + 4))});
+                pcsample += 4;
+            }
+            else if (opname == "bnez")
+            {
+                string reg;
+                ss >> reg;
+                string label;
+                ss >> label;
+                instructions_sample.push_back({pcsample, "bne " + reg + " x0 " + to_string(labelmap[label] - 268435456 - (pcsample + 4))});
+                pcsample += 4;
+            }
             else
             {
                 instructions_sample.push_back({pcsample, line_sample});
@@ -687,9 +743,7 @@ int main()
     outputFileSample.close();
 
     // main.cpp starts here
-
-    // std::this_thread::sleep_for(std::chrono::seconds(1));
-
+    
     fstream input_file, output_file;
     input_file.open("refined_code.asm", ios::in);
 
@@ -743,18 +797,19 @@ int main()
                     for load instructions, if the immediate is label: then source address reg and destination registers are same
                     else take the register specfied in the instruction with the offset
                     */
-                    if (tokens.size() != 5 && tokens.size()!=4)
+                    if (tokens.size() != 5 && tokens.size() != 4)
                     {
-                        
+
                         throw invalid_argument("I-type expects 3 operands");
                     }
-                    if(tokens.size()==4){
+                    if (tokens.size() == 4)
+                    {
                         vector<string> newTokens(5);
                         newTokens[0] = tokens[0];
                         newTokens[1] = tokens[1];
                         newTokens[2] = tokens[2];
-                        newTokens[4] = tokens[3].substr(0,tokens[3].find('('));
-                        newTokens[3] = tokens[3].substr(tokens[3].find('(')+1,tokens[3].size()-1);
+                        newTokens[4] = tokens[3].substr(0, tokens[3].find('('));
+                        newTokens[3] = tokens[3].substr(tokens[3].find('(') + 1, tokens[3].size() - 1);
                         tokens = newTokens;
                     }
                     uint8_t rd = parseRegister(tokens[2]);
@@ -905,6 +960,7 @@ int main()
                 return 1;
             }
         }
+        output_file << "0x8   #end of text segment" << endl;
         output_file.close(); // Close the file object.
         input_file.close();
     }
@@ -912,7 +968,7 @@ int main()
     // main.cpp ends here
 
     // std::this_thread::sleep_for(std::chrono::seconds(1));
-    processDataSegment("assembly.s", "output.txt");
+    processDataSegment("input.asm", "output.txt");
 
     // Open output.txt for reading
     std::ifstream inputFileCopy("output.txt");
