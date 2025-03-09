@@ -198,11 +198,10 @@ map<string, InstructionInfo> instructionMap = {
     {"rem", {"R", 0x33, 0x6, 0x01}},
 
     {"addi", {"I", 0x13, 0x0, 0x00}},
-    {"addi", {"I", 0x13, 0x0, 0x00}},
     {"andi", {"I", 0x13, 0x7, 0x00}},
     {"ori", {"I", 0x13, 0x6, 0x00}},
     {"jalr", {"I", 0x67, 0x0, 0x00}},
-
+    {"xori", {"I", 0x13, 0x4, 0x00}},
     {"lw", {"I", 0x03, 0x2, 0x00}},
 
     {"sw", {"S", 0x23, 0x2, 0x00}},
@@ -220,6 +219,7 @@ map<string, InstructionInfo> instructionMap = {
     {"lb", {"I", 0x03, 0x0, 0x00}},
     {"lh", {"I", 0x03, 0x1, 0x00}},
     {"ld", {"I", 0x03, 0x3, 0x00}},
+
 
 };
 
@@ -277,8 +277,7 @@ int32_t parseImmediate(const string &immStr, string type)
         }
         else if (immStr.size() > 2 && immStr.substr(0, 2) == "0b")
         {
-            cout<<"binary"<<endl;
-            cout<<immStr.substr(2)<<endl;
+            // cout<<immStr.substr(2)<<endl;
             imm = stoi(immStr.substr(2), &pos, 2);
             pos+=2;
         }
@@ -672,7 +671,8 @@ int main()
     // Write to output file with program counter
     for (const auto &pair : instructions_sample)
     {
-        outputFileSample << "0x" << hex << setw(8) << setfill('0') << pair.first << ": " << pair.second << endl;
+        outputFileSample << "0x" << hex << pair.first << ": " << pair.second << endl;
+        // outputFileSample << "0x" << hex << setw(8) << setfill('0') << pair.first << ": " << pair.second << endl;
     }
     outputFileSample << endl;
 
@@ -698,7 +698,7 @@ int main()
         string line;
         output_file.open("output.mc", ios::out);
         // Read data from the file object and put it into a string.
-        output_file << "Address       Machine Code     Assembly Code     Opcode-Func3-Func7-rd-rs1-imm" << endl;
+        output_file << "Address       Machine Code    Assembly Code \t\t\t\t\t   Opcode-Func3-Func7-rd-rs1-imm" << endl;
         while (getline(input_file, line))
         {
             // cout<<line<<endl;
@@ -707,6 +707,12 @@ int main()
             {
                 break;
             }
+            // cout<<line<<endl;
+            // //print tokens
+            // for (auto i : tokens)
+            // {
+            //     cout << i << endl;
+            // }
             pc = tokens[0];
             string op = tokens[1];
             if (instructionMap.find(op) == instructionMap.end())
@@ -834,8 +840,9 @@ int main()
                     }
                     uint8_t rd = parseRegister(tokens[2]);
                     int32_t imm = parseImmediate(tokens[3], "U");
-                    if (imm < -524288 || imm > 524287)
+                    if (imm < -1048577 || imm > 1048576)
                     {
+                        cout<<imm<<endl;
                         throw invalid_argument("U-type immediate out of range");
                     }
                     uint32_t imm_upper = (static_cast<uint32_t>(imm) & 0xFFFFF) << 12;
@@ -882,7 +889,14 @@ int main()
                 if (output_file.is_open())
                 {
                     // output_file << "0x" << hex << machine_code << " ," << line << endl; // Inserting text.
-                    output_file << line.substr(0, 10) << "    0x" << hex << std::setw(8) << std::setfill('0') << machine_code << "      " << line.substr(11, line.size() - 1) << "    # " << extractInstructionFields(line.substr(11, line.size() - 1)) << endl;
+                    // output_file << line.substr(0, line.find(' ')) << "    0x" << hex << std::setw(8) << std::setfill('0') << machine_code << "      " << line.substr(11, line.size() - 1) << "    # " << extractInstructionFields(line.substr(line.find(' ') + 1)) << endl;
+                    output_file << std::left << std::setw(13) << line.substr(0, line.find(' ')) << setfill(' ') // First word (opcode/label)
+                                << " 0x" << std::hex << std::setw(8) << std::setfill('0') << machine_code << std::setfill(' ')  // Hex code with zero padding
+                                << "      " << std::setw(35) <<line.substr(line.find(' ')+1)  // Reset padding to spaces for alignment
+                                << "  # " << extractInstructionFields(line.substr(line.find(' ') + 1))  
+                                << std::endl;
+
+
                 }
             }
             catch (const exception &e)
