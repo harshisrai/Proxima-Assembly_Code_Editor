@@ -15,16 +15,8 @@ Address       Machine Code    Assembly Code 					   Opcode-Func3-Func7-rd-rs1-im
 0x34:         0x00762023      sw t2  0(a2)                         # 0100011-010-0000000-NULL-01100-00111-000000000000
 0x38:         0xFFF58593      addi a1  a1  -1                      # 0010011-000-NULL-01011-01011-NULL-111111111111
 0x3c:         0x0000006F      jal x0 keep_looping                  # 1101111-NULL-NULL-00000-NULL-NULL-00000000000000000000
-
 0x8   #end of text segment
 
 Memory Address   Value
 0x10000000     0x00000005
-0x10000004     0x00000006
-0x10000008     0x00000007
-0x1000000C     0x0006
-0x1000000E     0x0007
-0x10000010     0x0008
-0x10000012     0x00
-0x10000013     0x01
-0x10000014     0x02
+0x10000004     0x00000000

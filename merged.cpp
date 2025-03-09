@@ -18,9 +18,9 @@ using namespace std;
 vector<pair<unsigned int, string>> instructions_sample;
 map<string, unsigned int> labels_sample;
 unsigned int pcsample = 0x0; // Starting program counter
-string OVERALLINPUTFILE="input.asm";
-string OVERALLOUTPUTFILE="output.mc";
-string processedfile="refined_code.asm";
+string OVERALLINPUTFILE = "input01.asm";
+string OVERALLOUTPUTFILE = "output.mc";
+string processedfile = "refined_code.asm";
 // Function to check if a line is an instruction (not .data, labels, or empty lines)
 int lineType(const string &line)
 {
@@ -577,8 +577,8 @@ string extractInstructionFields(const string &instr)
 
 int main()
 {
-    ifstream inputFileSample(OVERALLINPUTFILE);         // Input assembly file
-    ofstream outputFileSample(processedfile); // Output file with PC
+    ifstream inputFileSample(OVERALLINPUTFILE); // Input assembly file
+    ofstream outputFileSample(processedfile);   // Output file with PC
 
     if (!inputFileSample || !outputFileSample)
     {
