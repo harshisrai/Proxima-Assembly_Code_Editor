@@ -22,7 +22,6 @@ unsigned int pcsample = 0x0; // Starting program counter
 // Function to check if a line is an instruction (not .data, labels, or empty lines)
 int lineType(const string &line)
 {
-
     // 1 for instruction, 2 for text labels, 0 for others
     static bool text = false;
     if (line.find(".text") != string::npos)
@@ -47,14 +46,12 @@ int lineType(const string &line)
         // if instruction string is empty
         // labels.push_back({pcsample, label});
         labels_sample[label] = pcsample;
-        cout << label << " " << labels_sample[label] << endl;
         if (!instruct.empty())
         {
             instructions_sample.push_back({pcsample, instruct});
             stringstream ss(instruct);
             string opcode;
             ss >> opcode;
-            cout << "tamasha " << opcode << endl;
             if (opcode == "lw" || opcode == "lh" || opcode == "lb" || opcode == "ld")
             {
                 pcsample += 8;
@@ -237,17 +234,7 @@ map<string, InstructionInfo> instructionMap = {
 };
 
 unordered_map<string, string> registerMap = {
-        {"t0", "x5"},  {"t1", "x6"},  {"t2", "x7"},
-        {"s0", "x8"},  {"s1", "x9"},  {"a0", "x10"},
-        {"a1", "x11"}, {"a2", "x12"}, {"a3", "x13"},
-        {"a4", "x14"}, {"a5", "x15"}, {"a6", "x16"},
-        {"a7", "x17"}, {"s2", "x18"}, {"s3", "x19"},
-        {"s4", "x20"}, {"s5", "x21"}, {"s6", "x22"},
-        {"s7", "x23"}, {"s8", "x24"}, {"s9", "x25"},
-        {"s10", "x26"}, {"s11", "x27"}, {"t3", "x28"},
-        {"t4", "x29"}, {"t5", "x30"}, {"t6", "x31"}
-    };
-
+    {"t0", "x5"}, {"t1", "x6"}, {"t2", "x7"}, {"s0", "x8"}, {"s1", "x9"}, {"a0", "x10"}, {"a1", "x11"}, {"a2", "x12"}, {"a3", "x13"}, {"a4", "x14"}, {"a5", "x15"}, {"a6", "x16"}, {"a7", "x17"}, {"s2", "x18"}, {"s3", "x19"}, {"s4", "x20"}, {"s5", "x21"}, {"s6", "x22"}, {"s7", "x23"}, {"s8", "x24"}, {"s9", "x25"}, {"s10", "x26"}, {"s11", "x27"}, {"t3", "x28"}, {"t4", "x29"}, {"t5", "x30"}, {"t6", "x31"}};
 
 vector<string> tokenize(const string &line)
 {
@@ -271,12 +258,12 @@ vector<string> tokenize(const string &line)
 
 uint8_t parseRegister(const string &reg)
 {
-    //cout<<reg<<endl;
-    if (reg.empty() || !(reg[0] == 'x' ||  reg[0] == 't' ||  reg[0] == 'a'))
+    // cout<<reg<<endl;
+    if (reg.empty() || !(reg[0] == 'x' || reg[0] == 't' || reg[0] == 'a'))
     {
         throw invalid_argument("Invalid register: " + reg);
     }
-    
+
     int num;
     try
     {
@@ -286,29 +273,31 @@ uint8_t parseRegister(const string &reg)
     {
         throw invalid_argument("Invalid register: " + reg);
     }
-    if(reg[0]=='x'){
+    if (reg[0] == 'x')
+    {
         if (num < 0 || num > 31)
         {
-        throw invalid_argument("Register out of range: " + reg);
+            throw invalid_argument("Register out of range: " + reg);
         }
     }
-    else if(reg[0]=='t'){
+    else if (reg[0] == 't')
+    {
         if (num < 0 || num > 6)
         {
-        throw invalid_argument("Register out of range: " + reg);
+            throw invalid_argument("Register out of range: " + reg);
         }
-        //reg in registermap
-        auto str=registerMap[reg];
-        num=stoi(str.substr(1));
-    
+        // reg in registermap
+        auto str = registerMap[reg];
+        num = stoi(str.substr(1));
     }
-    else if(reg[0]=='a'){
+    else if (reg[0] == 'a')
+    {
         if (num < 0 || num > 10)
         {
-        throw invalid_argument("Register out of range: " + reg);
+            throw invalid_argument("Register out of range: " + reg);
         }
-        auto str=registerMap[reg];
-        num=stoi(str.substr(1));
+        auto str = registerMap[reg];
+        num = stoi(str.substr(1));
     }
 
     return static_cast<uint8_t>(num);
@@ -378,13 +367,12 @@ string extractInstructionFields(const string &instr)
 
     // The first token is the operation.
     string op = tokens[0];
-    
+
     if (instructionMap.find(op) == instructionMap.end())
     {
         throw invalid_argument("Unknown instruction: " + op);
     }
     const InstructionInfo &info = instructionMap[op];
-    
 
     // Get the basic encoding fields from the map.
     uint32_t opcode = info.opcode; // 7 bits
@@ -428,18 +416,21 @@ string extractInstructionFields(const string &instr)
             newTokens[2] = tokens[2].substr(parenPos + 1, tokens[2].size() - parenPos - 2);
             tokens = newTokens;
         }
-        cout<<op<<" "<<tokens[1]<<" "<<tokens[2]<<" "<<tokens[3]<<endl;
-        if(op=="lw"||op=="ld"||op=="lh"||op=="lb"){
-        
+        // cout<<op<<" "<<tokens[1]<<" "<<tokens[2]<<" "<<tokens[3]<<endl;
+        if (op == "lw" || op == "ld" || op == "lh" || op == "lb")
+        {
+
             rd = parseRegister(tokens[1]);
             rs1 = parseRegister(tokens[3]);
-            imm = parseImmediate(tokens[2],"I");
+            imm = parseImmediate(tokens[2], "I");
         }
-        else{
-        rd = parseRegister(tokens[1]);
-        rs1 = parseRegister(tokens[2]);
-        imm = parseImmediate(tokens[3], "I");
-    }}
+        else
+        {
+            rd = parseRegister(tokens[1]);
+            rs1 = parseRegister(tokens[2]);
+            imm = parseImmediate(tokens[3], "I");
+        }
+    }
     else if (info.type == "S")
     {
         // S-type (store): could be "op rs2 offset(rs1)" or "op rs2 offset rs1"
@@ -585,7 +576,7 @@ string extractInstructionFields(const string &instr)
 
 int main()
 {
-    ifstream inputFileSample("input01.asm");         // Input assembly file
+    ifstream inputFileSample("input01.asm");       // Input assembly file
     ofstream outputFileSample("refined_code.asm"); // Output file with PC
 
     if (!inputFileSample || !outputFileSample)
@@ -662,7 +653,7 @@ int main()
             // cout << i.first << " " << i.second << endl;
         }
     }
-    while (getline(inputFileSample, line_sample))
+    do
     {
         // Remove comments from the line_sample
         size_t commentPos = line_sample.find('#');
@@ -670,7 +661,7 @@ int main()
         {
             line_sample = line_sample.substr(0, commentPos);
         }
-        replace(line_sample.begin(),line_sample.end(),',',' ');
+        replace(line_sample.begin(), line_sample.end(), ',', ' ');
         // Trim leading and trailing spaces
         line_sample.erase(0, line_sample.find_first_not_of(" \t"));
         line_sample.erase(line_sample.find_last_not_of(" \t") + 1);
@@ -695,16 +686,17 @@ int main()
                     itislabel = false;
                 }
                 else
-              {
-                    
+                {
+
                     itislabel = false;
-                for (char ch:label){
-                        if(!isdigit(ch)){
+                    for (char ch : label)
+                    {
+                        if (!isdigit(ch))
+                        {
                             itislabel = true;
                             break;
                         }
-                }
-                    
+                    }
                 }
                 if (itislabel)
                 {
@@ -807,7 +799,7 @@ int main()
                 labels[line_sample.substr(0, line_sample.find(':'))] = pcsample;
             }
         }
-    }
+    } while (getline(inputFileSample, line_sample));
 
     // Write to output file with program counter
     for (const auto &pair : instructions_sample)
@@ -897,11 +889,21 @@ int main()
                         newTokens[3] = tokens[3].substr(tokens[3].find('(') + 1, tokens[3].size() - 1);
                         tokens = newTokens;
                     }
-                    uint8_t rd = parseRegister(tokens[2]);
-                    uint8_t rs1 = parseRegister(tokens[3]);
-                    int32_t imm = parseImmediate(tokens[4], "I");
-                    cout<<op<<endl;
-                    cout<<line<<endl;
+
+                    uint32_t rd, rs1;
+                    int32_t imm;
+                    if (op == "lw" || op == "ld" || op == "lh" || op == "lb")
+                    {
+                        rd = parseRegister(tokens[2]);
+                        rs1 = parseRegister(tokens[4]);
+                        imm = parseImmediate(tokens[3], "I");
+                    }
+                    else
+                    {
+                        rd = parseRegister(tokens[2]);
+                        rs1 = parseRegister(tokens[3]);
+                        imm = parseImmediate(tokens[4], "I");
+                    }
                     if (imm < -2048 || imm > 2047)
                     {
                         throw invalid_argument("I-type immediate out of range");
@@ -1033,13 +1035,12 @@ int main()
                     // output_file << "0x" << hex << machine_code << " ," << line << endl; // Inserting text.
                     // output_file << line.substr(0, line.find(' ')) << "    0x" << hex << std::setw(8) << std::setfill('0') << machine_code << "      " << line.substr(11, line.size() - 1) << "    # " << extractInstructionFields(line.substr(line.find(' ') + 1)) << endl;
                     output_file << std::left << std::setw(13) << line.substr(0, line.find(' '))
-            << std::setfill(' ')
-            << " 0x" << std::right << std::hex << std::setw(8) << std::setfill('0') << std::uppercase << machine_code
-            << std::setfill(' ') << std::left  // switch back to left-justification for the following fields
-            << "      " << std::setw(35) << line.substr(line.find(' ') + 1)
-            << "  # " << extractInstructionFields(line.substr(line.find(' ') + 1))
-            << std::endl;
-
+                                << std::setfill(' ')
+                                << " 0x" << std::right << std::hex << std::setw(8) << std::setfill('0') << std::uppercase << machine_code
+                                << std::setfill(' ') << std::left // switch back to left-justification for the following fields
+                                << "      " << std::setw(35) << line.substr(line.find(' ') + 1)
+                                << "  # " << extractInstructionFields(line.substr(line.find(' ') + 1))
+                                << std::endl;
                 }
             }
             catch (const exception &e)
