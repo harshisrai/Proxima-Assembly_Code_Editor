@@ -538,6 +538,7 @@ int main()
 
     // section to map labels_sample to their addresses in .data section
     getline(inputFileSample, line_sample);
+     while((line_sample.find('#')!=string::npos && line_sample.find(".data")==string::npos)|| line_sample.size()==0)getline(inputFileSample,line_sample);
     if (line_sample.find(".data") != string::npos)
     {
 
