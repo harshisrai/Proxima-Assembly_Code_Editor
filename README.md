@@ -1,4 +1,4 @@
-# Assembly Code Processing Project
+# Assembly Code Processing Project - G4
 
 ## Team Members
 - **Harsh Rai** (2023CSB1345)  
