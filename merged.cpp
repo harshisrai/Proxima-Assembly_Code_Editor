@@ -946,7 +946,7 @@ int main()
                     // output_file << "0x" << hex << machine_code << " ," << line << endl; // Inserting text.
                     // output_file << line.substr(0, line.find(' ')) << "    0x" << hex << std::setw(8) << std::setfill('0') << machine_code << "      " << line.substr(11, line.size() - 1) << "    # " << extractInstructionFields(line.substr(line.find(' ') + 1)) << endl;
                     output_file << std::left << std::setw(13) << line.substr(0, line.find(' ')) << setfill(' ') // First word (opcode/label)
-                                << " 0x" << std::hex << std::setw(8) << std::setfill('0') << machine_code << std::setfill(' ')  // Hex code with zero padding
+                                << " 0x" << std::hex << std::setw(8) << std::setfill('0') << uppercase <<machine_code << std::setfill(' ')  // Hex code with zero padding
                                 << "      " << std::setw(35) <<line.substr(line.find(' ')+1)  // Reset padding to spaces for alignment
                                 << "  # " << extractInstructionFields(line.substr(line.find(' ') + 1))  
                                 << std::endl;
