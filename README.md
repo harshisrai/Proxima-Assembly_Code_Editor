@@ -13,7 +13,6 @@ This project processes an assembly file (`input.asm`) using `main.cpp`. It gener
 │   ├── input4.asm
 ├── input.asm          # Main input file
 ├── main.cpp           # C++ program to process assembly file
-├── main.exe         # Compiled executable
 ├── output.mc          # Final processed output
 ├── output.txt         # Intermediate output file
 ├── refined_code.asm   # Refined assembly code
