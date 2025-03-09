@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 0x0: auipc x11 65536
 0x4: addi x11 x11 18
 0x8: add x1 x2 x3
@@ -27,4 +28,22 @@
 0x68: blt x13 x14 branch4
 0x6c: lui x6  10000
 0x70: jalr x1 x15 0
+=======
+0x0: addi t3  x0  0x100
+0x4: slli t3  t3  20
+0x8: lw a1  0  t3
+0xc: lw a2  4  t3
+0x10: addi t0  x0  0
+0x14: addi t1  x0  1
+0x18: sw t0  0(a2)
+0x1c: addi a1  a1  -1
+0x20: addi a2  a2  4
+0x24: sw t1  0(a2)
+0x28: addi a1  a1  -1
+0x2c: add t2  t1  t0
+0x30: addi a2  a2  4
+0x34: sw t2  0(a2)
+0x38: addi a1  a1  -1
+0x3c: jal x0 keep_looping
+>>>>>>> 53d2ded58d1b4380fb0315c83866459bb7af998c
 
