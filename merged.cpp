@@ -18,7 +18,9 @@ using namespace std;
 vector<pair<unsigned int, string>> instructions_sample;
 map<string, unsigned int> labels_sample;
 unsigned int pcsample = 0x0; // Starting program counter
-
+string OVERALLINPUTFILE="input.asm";
+string OVERALLOUTPUTFILE="output.mc";
+string processedfile="refined_code.asm";
 // Function to check if a line is an instruction (not .data, labels, or empty lines)
 int lineType(const string &line)
 {
@@ -62,7 +64,6 @@ int lineType(const string &line)
             }
         }
         string after = line.substr(pos + 1);
-        // cout << "before: " << label << " " << "after: " << after << endl;
         return 2;
     }
     return 1;
@@ -576,8 +577,8 @@ string extractInstructionFields(const string &instr)
 
 int main()
 {
-    ifstream inputFileSample("input01.asm");       // Input assembly file
-    ofstream outputFileSample("refined_code.asm"); // Output file with PC
+    ifstream inputFileSample(OVERALLINPUTFILE);         // Input assembly file
+    ofstream outputFileSample(processedfile); // Output file with PC
 
     if (!inputFileSample || !outputFileSample)
     {
@@ -647,10 +648,6 @@ int main()
                 }
                 curraddress += count * mul;
             }
-        }
-        for (auto i : labelmap)
-        {
-            // cout << i.first << " " << i.second << endl;
         }
     }
     do
@@ -822,28 +819,21 @@ int main()
     // main.cpp starts here
 
     fstream input_file, output_file;
-    input_file.open("refined_code.asm", ios::in);
+    input_file.open(processedfile, ios::in);
 
     if (input_file.is_open())
     {
         string line;
-        output_file.open("output.mc", ios::out);
+        output_file.open(OVERALLOUTPUTFILE, ios::out);
         // Read data from the file object and put it into a string.
         output_file << "Address       Machine Code    Assembly Code \t\t\t\t\t   Opcode-Func3-Func7-rd-rs1-imm" << endl;
         while (getline(input_file, line))
         {
-            // cout<<line<<endl;
             vector<string> tokens = tokenize(line);
             if (tokens.empty())
             {
                 break;
             }
-            // cout<<line<<endl;
-            // //print tokens
-            // for (auto i : tokens)
-            // {
-            //     cout << i << endl;
-            // }
             pc = tokens[0];
             string op = tokens[1];
             if (instructionMap.find(op) == instructionMap.end())
@@ -870,10 +860,6 @@ int main()
                 }
                 else if (info.type == "I")
                 {
-                    /*
-                    for load instructions, if the immediate is label: then source address reg and destination registers are same
-                    else take the register specfied in the instruction with the offset
-                    */
                     if (tokens.size() != 5 && tokens.size() != 4)
                     {
 
@@ -1057,7 +1043,7 @@ int main()
     // main.cpp ends here
 
     // std::this_thread::sleep_for(std::chrono::seconds(1));
-    processDataSegment("input.asm", "output.txt");
+    processDataSegment(OVERALLINPUTFILE, "output.txt");
 
     // Open output.txt for reading
     std::ifstream inputFileCopy("output.txt");
@@ -1068,7 +1054,7 @@ int main()
     }
 
     // Open output.mc in append mode
-    std::ofstream outputFileCopy("output.mc", std::ios::app);
+    std::ofstream outputFileCopy(OVERALLOUTPUTFILE, std::ios::app);
     if (!outputFileCopy)
     {
         std::cerr << "Error: Cannot open output.mc (check permissions)" << std::endl;
@@ -1091,7 +1077,7 @@ int main()
     }
     else
     {
-        std::cout << "✅ Data from output.txt has been appended to output.mc successfully!" << std::endl;
+        std::cout << "Data from output.txt has been appended to output.mc successfully!" << std::endl;
     }
 
     // Close files
