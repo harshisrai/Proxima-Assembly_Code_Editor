@@ -1,5 +1,9 @@
 # Assembly Code Processing Project
 
+## Team Members
+- **Harsh Rai** (2023CSB1345)  
+- **Nishant Sahni** (2023CSB1140)  
+- **Hardik Garg** (2023CSB1121)
 ## Overview
 This project processes an assembly file (`input.asm`) using `main.cpp`. It generates two auxiliary files: `refined_code.asm` and `output.txt`, with the final output stored in `output.mc`. Additional test cases are available in the `inputs/` folder.
 
