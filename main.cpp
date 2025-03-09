@@ -54,14 +54,7 @@ int lineType(const string &line)
             stringstream ss(instruct);
             string opcode;
             ss >> opcode;
-            if (opcode == "lw" || opcode == "lh" || opcode == "lb" || opcode == "ld")
-            {
-                pcsample += 8;
-            }
-            else
-            {
-                pcsample += 4;
-            }
+            pcsample += 4;
         }
         string after = line.substr(pos + 1);
         return 2;
@@ -259,7 +252,6 @@ vector<string> tokenize(const string &line)
 
 uint8_t parseRegister(const string &reg)
 {
-    // cout<<reg<<endl;
     if (reg.empty() || !(reg[0] == 'x' || reg[0] == 't' || reg[0] == 'a'))
     {
         throw invalid_argument("Invalid register: " + reg);
@@ -383,7 +375,6 @@ string extractInstructionFields(const string &instr)
     // Initialize registers and immediate.
     uint32_t rd = 0, rs1 = 0, rs2 = 0;
     int32_t imm = 0; // signed immediate
-
     // Decode based on the instruction type.
     if (info.type == "R")
     {
@@ -404,23 +395,21 @@ string extractInstructionFields(const string &instr)
         {
             throw invalid_argument("I-type expects 2 or 3 operands");
         }
+
+        
         // If we have 3 tokens, convert "imm(rs1)" into separate imm + rs1
         if (tokens.size() == 3)
         {
             vector<string> newTokens(4);
-            newTokens[0] = tokens[0]; // op
-            newTokens[1] = tokens[1]; // rd
-            // e.g. tokens[2] = "100(x2)"
-            size_t parenPos = tokens[2].find('(');
-            newTokens[3] = tokens[2].substr(0, parenPos); // imm
-            // e.g. inside parentheses is x2
-            newTokens[2] = tokens[2].substr(parenPos + 1, tokens[2].size() - parenPos - 2);
+            newTokens[0] = tokens[0];
+            newTokens[1] = tokens[1];
+            newTokens[2] = tokens[2].substr(0, tokens[2].find('('));
+            newTokens[3] = tokens[2].substr(tokens[2].find('(') + 1, tokens[3].rfind(')') - tokens[3].find('(') - 1);
             tokens = newTokens;
         }
-        // cout<<op<<" "<<tokens[1]<<" "<<tokens[2]<<" "<<tokens[3]<<endl;
+
         if (op == "lw" || op == "ld" || op == "lh" || op == "lb")
         {
-
             rd = parseRegister(tokens[1]);
             rs1 = parseRegister(tokens[3]);
             imm = parseImmediate(tokens[2], "I");
@@ -594,8 +583,16 @@ int main()
 
     // section to map labels_sample to their addresses in .data section
     getline(inputFileSample, line_sample);
-    while ((line_sample.find('#') != string::npos && line_sample.find(".data") == string::npos) || line_sample.size() == 0)
+    while (((line_sample.find('#') != string::npos && line_sample.find(".data") == string::npos) || line_sample.size() == 0)&& getline(inputFileSample, line_sample))
         getline(inputFileSample, line_sample);
+    //check if we are at EOF
+    if (inputFileSample.eof())
+    {
+        //go to start of file
+        inputFileSample.clear();
+        inputFileSample.seekg(0, ios::beg);
+        getline(inputFileSample, line_sample);
+    }
     if (line_sample.find(".data") != string::npos)
     {
 
@@ -684,19 +681,18 @@ int main()
                 }
                 else
                 {
-
                     itislabel = false;
-                    for (char ch : label)
+                    try{
+                        stoi(label);
+                    }
+                    catch (...)
                     {
-                        if (!isdigit(ch))
-                        {
-                            itislabel = true;
-                            break;
-                        }
+                        itislabel = true;
                     }
                 }
                 if (itislabel)
                 {
+                    // cout<<label<<endl;
                     if (labelmap.find(label) == labelmap.end())
                     {
                         cerr << "Error: Label not found" << endl;
@@ -709,7 +705,7 @@ int main()
                 }
                 else
                 {
-
+                    // cout<<"here:"<<line_sample<<endl;
                     instructions_sample.push_back({pcsample, line_sample});
                     pcsample += 4;
                 }
@@ -843,7 +839,7 @@ int main()
             }
 
             const auto &info = instructionMap[op];
-
+            
             try
             {
                 uint32_t machine_code = 0;
@@ -871,8 +867,8 @@ int main()
                         newTokens[0] = tokens[0];
                         newTokens[1] = tokens[1];
                         newTokens[2] = tokens[2];
-                        newTokens[4] = tokens[3].substr(0, tokens[3].find('('));
-                        newTokens[3] = tokens[3].substr(tokens[3].find('(') + 1, tokens[3].size() - 1);
+                        newTokens[3] = tokens[3].substr(0, tokens[3].find('('));
+                        newTokens[4] = tokens[3].substr(tokens[3].find('(') + 1, tokens[3].rfind(')') - tokens[3].find('(') - 1);
                         tokens = newTokens;
                     }
 
@@ -972,7 +968,7 @@ int main()
                     int32_t imm = parseImmediate(tokens[3], "U");
                     if (imm < -1048577 || imm > 1048576)
                     {
-                        cout << imm << endl;
+                        // cout << imm << endl;
                         throw invalid_argument("U-type immediate out of range");
                     }
                     uint32_t imm_upper = (static_cast<uint32_t>(imm) & 0xFFFFF) << 12;
