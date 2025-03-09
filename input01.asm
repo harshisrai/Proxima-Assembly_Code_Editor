@@ -1,60 +1,52 @@
-# Venus RISC-V Assembly - Edge Cases and Syntax Exploration
 
-.data  # Data Section
+#/* 
+#Fibonacci sequence generator
+#Results are stored from 0x80001000 as series of 32bits word each.
+#fn = f(n-1) + f(n-2);
+#t2 = t1 + t0 -> Registers 
+#*/
+.data
+Len: .word 5
+DEST_MEM_ADDR: .word 0x10000100
 
-.text  # Code Section
+.text
+main: 
+addi t3, x0, 0x100
+slli t3, t3, 20
+#lw a1, 1, t3
+#lw a2, 4, t3
 
-.globl _start
-_start: 
-    # R-type instructions
-    add  x1, x2, x3   # Addition
-    sub  x4, x5, x6   # Subtraction
-    sll  x7, x8, x9   # Shift left
-    slt  x10, x11, x12  # Set if less than
-    sltu x13, x14, x15  # Unsigned set if less than
-    xor  x16, x17, x18  # XOR
-    srl  x19, x20, x21  # Shift right
-    sra  x22, x23, x24  # Shift right arithmetic
-    or   x25, x26, x27  # OR
-    and  x28, x29, x30  # AND
+#li a1, SEQ_LEN
+#li a2, DEST_MEM_ADDR
 
-    # I-type instructions
-    addi x1, x1, 0b11  # Edge case: min imm
-    addi x2, x2, 2047   # Edge case: max imm
-    xori x3, x3, 0xFFF  # Max immediate
-    slli x4, x4, 31     # Max shift
-    srli x5, x5, 31
-    srai x6, x6, 31
-    lw   x7, 1023(x8)   # Load edge offset
-    lb   x9, -128(x10)  # Load negative offset
-    lhu  x11, 255(x12)  # Load unsigned halfword
+addi t0, x0, 0
+addi t1, x0, 1
 
-    # S-type instructions (store)
-    sw   x1, -1024(x2)  # Store edge case
-    sb   x3, 127(x4)    # Store byte max offset
+#blez a1, keep_looping 
+#    /* Fibonacci seq len is >= 1; Write the first number 0 */
+    sw t0, 0(a2)
+    addi a1, a1, -1
 
-    # B-type instructions (branches)
-    beq  x1, x2, label_forward   # Branch forward
-    bne  x3, x4, label_backward  # Branch backward
-    blt  x5, x6, label_far       # Branch to far location
-    bge  x7, x8, label_forward
+#blez a1, keep_looping
+#    /* Fibonacci seq len is >= 2; Write the second number 1 */
+    addi a2, a2, 4
+    sw t1, 0(a2)
+    addi a1, a1, -1
 
-    # U-type instructions (lui, auipc)
-    lui  x9, 0xFFFFF    # Load max upper immediate
-    auipc x10, 0x7FFFF  # Upper immediate edge case
+#blez a1, keep_looping
+# /* Fibonacci seq len is >= 3; Write the other numbers that follow the sequence */
+Fibonacci:
 
-    # J-type instructions (jump)
-    jal  x1, label_forward  # Jump forward
-    jalr x2, x3, -4         # Indirect jump
+    add t2, t1, t0
+    addi a2, a2, 4
+    sw t2, 0(a2)
 
-label_forward:
-    j label_backward  # Jump to earlier label
+    #mv t0, t1
+    #mv t1, t2
+    addi a1, a1, -1
 
-label_far:
-    # Comment in same line with tab spacing
-    add x1, x2, x3  # Inline comment
+#bnez a1, Fibonacci
 
-label_backward:
-    j label_forward  # Jump back
-
-   
+keep_looping: 
+#nop
+j keep_looping

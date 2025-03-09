@@ -47,12 +47,14 @@ int lineType(const string &line)
         // if instruction string is empty
         // labels.push_back({pcsample, label});
         labels_sample[label] = pcsample;
+        cout<<label<<" "<<labels_sample[label]<<endl;
         if (!instruct.empty())
         {
             instructions_sample.push_back({pcsample, instruct});
             stringstream ss(instruct);
             string opcode;
             ss >> opcode;
+            cout<<"tamasha "<<opcode<<endl;
             if (opcode == "lw" || opcode == "lh" || opcode == "lb" || opcode == "ld")
             {
                 pcsample += 8;
@@ -105,7 +107,10 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
             size_t pos;
             if ((pos = line.find(".word")) != string::npos)
             {
-                istringstream values(line.substr(pos + 5));
+                string str = line.substr(pos+5);
+                replace(str.begin(),str.end(),',',' ');
+
+                istringstream values(str);
                 int num;
                 while (values >> num)
                 {
@@ -116,7 +121,9 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
             }
             else if ((pos = line.find(".dword")) != string::npos)
             {
-                istringstream values(line.substr(pos + 6));
+                string str = line.substr(pos+6);
+                replace(str.begin(),str.end(),',',' ');
+                istringstream values(str);
                 long long num;
                 while (values >> num)
                 {
@@ -127,7 +134,9 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
             }
             else if ((pos = line.find(".half")) != string::npos)
             {
-                istringstream values(line.substr(pos + 5));
+                string str = line.substr(pos+5);
+                replace(str.begin(),str.end(),',',' ');
+                istringstream values(str);
                 int num;
                 while (values >> num)
                 {
@@ -138,7 +147,9 @@ void processDataSegment(const string &inputFileName, const string &outputFileNam
             }
             else if ((pos = line.find(".byte")) != string::npos)
             {
-                istringstream values(line.substr(pos + 5));
+                string str = line.substr(pos+5);
+                replace(str.begin(),str.end(),',',' ');
+                istringstream values(str);
                 int num;
                 while (values >> num)
                 {
@@ -198,12 +209,14 @@ map<string, InstructionInfo> instructionMap = {
     {"rem", {"R", 0x33, 0x6, 0x01}},
 
     {"addi", {"I", 0x13, 0x0, 0x00}},
-    {"addi", {"I", 0x13, 0x0, 0x00}},
     {"andi", {"I", 0x13, 0x7, 0x00}},
     {"ori", {"I", 0x13, 0x6, 0x00}},
     {"jalr", {"I", 0x67, 0x0, 0x00}},
-
+    {"xori", {"I", 0x13, 0x4, 0x00}},
     {"lw", {"I", 0x03, 0x2, 0x00}},
+    {"slli",{"I",0x13,0x1,0x00}},
+    {"srai",{"I", 0x13,0x5,0x20}},
+    {"srli",{"I", 0x13,0x5,0x00}},
 
     {"sw", {"S", 0x23, 0x2, 0x00}},
     {"sb", {"S", 0x23, 0x0, 0x00}},
@@ -220,6 +233,7 @@ map<string, InstructionInfo> instructionMap = {
     {"lb", {"I", 0x03, 0x0, 0x00}},
     {"lh", {"I", 0x03, 0x1, 0x00}},
     {"ld", {"I", 0x03, 0x3, 0x00}},
+
 
 };
 
@@ -245,7 +259,7 @@ vector<string> tokenize(const string &line)
 
 uint8_t parseRegister(const string &reg)
 {
-    if (reg.empty() || reg[0] != 'x')
+    if (reg.empty() || !(reg[0] == 'x' ||  reg[0] == 't' ||  reg[0] == 'a'))
     {
         throw invalid_argument("Invalid register: " + reg);
     }
@@ -277,8 +291,7 @@ int32_t parseImmediate(const string &immStr, string type)
         }
         else if (immStr.size() > 2 && immStr.substr(0, 2) == "0b")
         {
-            cout<<"binary"<<endl;
-            cout<<immStr.substr(2)<<endl;
+            // cout<<immStr.substr(2)<<endl;
             imm = stoi(immStr.substr(2), &pos, 2);
             pos+=2;
         }
@@ -286,7 +299,11 @@ int32_t parseImmediate(const string &immStr, string type)
         {
             // cout << "type: " << type << endl;
             int num = stoi(pc, 0, 16);
-            imm = labels[immStr] - num;
+            int num2=labels[immStr];
+            if(num2==0){
+                throw invalid_argument("Label not found: " + immStr);
+            }
+            imm = num2 - num;
 
             // cout << dec << imm << endl;
             // cout << hex << imm << endl;
@@ -522,7 +539,7 @@ string extractInstructionFields(const string &instr)
 
 int main()
 {
-    ifstream inputFileSample("input.asm");         // Input assembly file
+    ifstream inputFileSample("input01.asm");         // Input assembly file
     ofstream outputFileSample("refined_code.asm"); // Output file with PC
 
     if (!inputFileSample || !outputFileSample)
@@ -539,6 +556,7 @@ int main()
 
     // section to map labels_sample to their addresses in .data section
     getline(inputFileSample, line_sample);
+     while((line_sample.find('#')!=string::npos && line_sample.find(".data")==string::npos)|| line_sample.size()==0)getline(inputFileSample,line_sample);
     if (line_sample.find(".data") != string::npos)
     {
 
@@ -728,7 +746,8 @@ int main()
     // Write to output file with program counter
     for (const auto &pair : instructions_sample)
     {
-        outputFileSample << "0x" << hex << setw(8) << setfill('0') << pair.first << ": " << pair.second << endl;
+        outputFileSample << "0x" << hex << pair.first << ": " << pair.second << endl;
+        // outputFileSample << "0x" << hex << setw(8) << setfill('0') << pair.first << ": " << pair.second << endl;
     }
     outputFileSample << endl;
 
@@ -752,7 +771,7 @@ int main()
         string line;
         output_file.open("output.mc", ios::out);
         // Read data from the file object and put it into a string.
-        output_file << "Address       Machine Code     Assembly Code     Opcode-Func3-Func7-rd-rs1-imm" << endl;
+        output_file << "Address       Machine Code    Assembly Code \t\t\t\t\t   Opcode-Func3-Func7-rd-rs1-imm" << endl;
         while (getline(input_file, line))
         {
             // cout<<line<<endl;
@@ -761,6 +780,12 @@ int main()
             {
                 break;
             }
+            // cout<<line<<endl;
+            // //print tokens
+            // for (auto i : tokens)
+            // {
+            //     cout << i << endl;
+            // }
             pc = tokens[0];
             string op = tokens[1];
             if (instructionMap.find(op) == instructionMap.end())
@@ -809,6 +834,8 @@ int main()
                     uint8_t rd = parseRegister(tokens[2]);
                     uint8_t rs1 = parseRegister(tokens[3]);
                     int32_t imm = parseImmediate(tokens[4], "I");
+                    cout<<op<<endl;
+                    cout<<line<<endl;
                     if (imm < -2048 || imm > 2047)
                     {
                         throw invalid_argument("I-type immediate out of range");
@@ -889,8 +916,9 @@ int main()
                     }
                     uint8_t rd = parseRegister(tokens[2]);
                     int32_t imm = parseImmediate(tokens[3], "U");
-                    if (imm < -524288 || imm > 524287)
+                    if (imm < -1048577 || imm > 1048576)
                     {
+                        cout<<imm<<endl;
                         throw invalid_argument("U-type immediate out of range");
                     }
                     uint32_t imm_upper = (static_cast<uint32_t>(imm) & 0xFFFFF) << 12;
@@ -937,7 +965,14 @@ int main()
                 if (output_file.is_open())
                 {
                     // output_file << "0x" << hex << machine_code << " ," << line << endl; // Inserting text.
-                    output_file << line.substr(0, 10) << "    0x" << hex << std::setw(8) << std::setfill('0') << machine_code << "      " << line.substr(11, line.size() - 1) << "    # " << extractInstructionFields(line.substr(11, line.size() - 1)) << endl;
+                    // output_file << line.substr(0, line.find(' ')) << "    0x" << hex << std::setw(8) << std::setfill('0') << machine_code << "      " << line.substr(11, line.size() - 1) << "    # " << extractInstructionFields(line.substr(line.find(' ') + 1)) << endl;
+                    output_file << std::left << std::setw(13) << line.substr(0, line.find(' ')) << setfill(' ') // First word (opcode/label)
+                                << " 0x" << std::hex << std::setw(8) << std::setfill('0') << uppercase <<machine_code << std::setfill(' ')  // Hex code with zero padding
+                                << "      " << std::setw(35) <<line.substr(line.find(' ')+1)  // Reset padding to spaces for alignment
+                                << "  # " << extractInstructionFields(line.substr(line.find(' ') + 1))  
+                                << std::endl;
+
+
                 }
             }
             catch (const exception &e)
