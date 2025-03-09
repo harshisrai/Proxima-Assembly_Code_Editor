@@ -348,11 +348,20 @@ string extractInstructionFields(const string &instr)
     }
     else if (info.type == "I")
     {
-        // I-type format: op rd rs1 imm
-        if (tokens.size() != 4)
+        // I-type format: op rd rs1 imm / op rd imm(rs1) in case of load
+        if (tokens.size() != 4 && tokens.size()!=3)
         {
-            throw invalid_argument("I-type expects 3 operands");
+            
+            throw invalid_argument("I-type expects 2 or 3 operands");
         }
+         if(tokens.size()==3){
+                        vector<string> newTokens(4);
+                        newTokens[0] = tokens[0];
+                        newTokens[1] = tokens[1];
+                        newTokens[3] = tokens[2].substr(0,tokens[2].find('('));
+                        newTokens[2] = tokens[2].substr(tokens[2].find('(')+1,tokens[2].size()-1);
+                        tokens = newTokens;
+                    }
         rd = parseRegister(tokens[1]);
         rs1 = parseRegister(tokens[2]);
         imm = parseImmediate(tokens[3], "I");
@@ -688,9 +697,19 @@ int main()
                     for load instructions, if the immediate is label: then source address reg and destination registers are same
                     else take the register specfied in the instruction with the offset
                     */
-                    if (tokens.size() != 5)
+                    if (tokens.size() != 5 && tokens.size()!=4)
                     {
+                        
                         throw invalid_argument("I-type expects 3 operands");
+                    }
+                    if(tokens.size()==4){
+                        vector<string> newTokens(5);
+                        newTokens[0] = tokens[0];
+                        newTokens[1] = tokens[1];
+                        newTokens[2] = tokens[2];
+                        newTokens[4] = tokens[3].substr(0,tokens[3].find('('));
+                        newTokens[3] = tokens[3].substr(tokens[3].find('(')+1,tokens[3].size()-1);
+                        tokens = newTokens;
                     }
                     uint8_t rd = parseRegister(tokens[2]);
                     uint8_t rs1 = parseRegister(tokens[3]);
