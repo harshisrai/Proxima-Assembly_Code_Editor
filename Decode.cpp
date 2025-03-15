@@ -13,6 +13,7 @@ const string regNames[32] = {
     "x24", "x25", "x26", "x27", "x28", "x29", "x30", "x31"
 };
 
+
 // 🔹 R-type instructions (opcode + funct3 + funct7 → instruction)
 unordered_map<string, string> rTypeInstructions = {
     {"01100110000000000", "ADD"},
@@ -41,6 +42,29 @@ unordered_map<string, string> iTypeInstructions = {
     {"0000011001", "LH"},
     {"0000011011", "LD"},
     {"1100111000", "JALR"}
+};
+
+unordered_map<string, string> sTypeInstructions = {
+    {"0100011000", "SB"},  // Store Byte
+    {"0100011001", "SH"},  // Store Halfword
+    {"0100011010", "SW"},  // Store Word
+    {"0100011011", "SD"}   // Store Double-word (RV64I only)
+};
+
+unordered_map<string, string> sbTypeInstructions = {
+    {"1100011000", "BEQ"},  // Branch if Equal
+    {"1100011001", "BNE"},  // Branch if Not Equal
+    {"1100011100", "BLT"},  // Branch if Less Than
+    {"1100011101", "BGE"}   // Branch if Greater Than or Equal
+};
+
+unordered_map<string, string> uTypeInstructions = {
+    {"0010111", "AUIPC"}, // Add Upper Immediate to PC
+    {"0110111", "LUI"}    // Load Upper Immediate
+};
+
+unordered_map<string, string> ujTypeInstructions = {
+    {"1101111", "JAL"}    // Jump and Link
 };
 
 // Function to decode R-type instructions
@@ -81,7 +105,7 @@ void decodeIType(uint32_t instruction) {
     // Sign-extend the immediate (12-bit to 32-bit)
     if (imm & 0x800) imm |= 0xFFFFF000;
 
-    string key = bitset<7>(opcode).to_string() + " " + bitset<3>(funct3).to_string();
+    string key = bitset<7>(opcode).to_string() + bitset<3>(funct3).to_string();
 
     if (iTypeInstructions.find(key) != iTypeInstructions.end()) {
         cout << iTypeInstructions[key] << " "
@@ -89,6 +113,91 @@ void decodeIType(uint32_t instruction) {
              << regNames[rs1]<<", "<<imm<< endl;
     } else {
         cout << "Unknown I-Type instruction" << endl;
+    }
+}
+
+void decodeSType(uint32_t instruction) {
+    uint32_t opcode = instruction & 0x7F;
+    uint32_t imm4_0 = (instruction >> 7) & 0x1F;
+    uint32_t funct3 = (instruction >> 12) & 0x7;
+    uint32_t rs1 = (instruction >> 15) & 0x1F;
+    uint32_t rs2 = (instruction >> 20) & 0x1F;
+    uint32_t imm11_5 = (instruction >> 25) & 0x7F;
+    
+    // Compute full immediate value
+    int32_t imm = (imm11_5 << 5) | imm4_0;
+    if (imm & (1 << 11)) imm |= 0xFFFFF000; // Sign extension
+
+    string key = bitset<7>(opcode).to_string() +
+                 bitset<3>(funct3).to_string();
+
+    if (sTypeInstructions.find(key) != sTypeInstructions.end()) {
+        cout << hex << "0x" << instruction << "  "  // Print machine code
+             << sTypeInstructions[key] << " "
+             << regNames[rs2] << ", " << imm << "(" << regNames[rs1] << ")"
+             << endl;
+    }
+}
+
+void decodeSBType(uint32_t instruction) {
+    uint32_t opcode = instruction & 0x7F;
+    uint32_t imm11 = (instruction >> 7) & 0x1;
+    uint32_t imm4_1 = (instruction >> 8) & 0xF;
+    uint32_t funct3 = (instruction >> 12) & 0x7;
+    uint32_t rs1 = (instruction >> 15) & 0x1F;
+    uint32_t rs2 = (instruction >> 20) & 0x1F;
+    uint32_t imm10_5 = (instruction >> 25) & 0x3F;
+    uint32_t imm12 = (instruction >> 31) & 0x1;
+    //cout<<imm11<<" "<<imm4_1<<" "<<imm10_5<<" "<<imm12<<endl;
+
+    // Compute full immediate value (sign-extended)
+    int32_t imm = (imm12 << 12) | (imm11 << 11) | (imm10_5 << 5) | (imm4_1 << 1);
+    if (imm & (1 << 12)) imm |= 0xFFFFE000; // Sign extension
+    //cout<<imm<<endl;
+
+    string key = bitset<7>(opcode).to_string() + bitset<3>(funct3).to_string();
+
+    if (sbTypeInstructions.find(key) != sbTypeInstructions.end()) {
+        cout <<  sbTypeInstructions[key] << " "
+             << regNames[rs1] << ", " << regNames[rs2] << ", " << imm
+             << endl;
+    }
+}
+
+void decodeUType(uint32_t instruction) {
+    uint32_t opcode = instruction & 0x7F;
+    uint32_t rd = (instruction >> 7) & 0x1F;
+    uint32_t imm = (instruction>>12); // Upper 20 bits
+
+    string key = bitset<7>(opcode).to_string();
+    
+    if (uTypeInstructions.find(key) != uTypeInstructions.end()) {
+        cout 
+             << uTypeInstructions[key] << " "
+             << regNames[rd] << ", " <<dec<< imm
+             << endl;
+    }
+}
+
+void decodeUJType(uint32_t instruction) {
+    uint32_t opcode = instruction & 0x7F;
+    uint32_t rd = (instruction >> 7) & 0x1F;
+    uint32_t imm20 = (instruction >> 31) & 0x1;
+    uint32_t imm10_1 = (instruction >> 21) & 0x3FF;
+    uint32_t imm11 = (instruction >> 20) & 0x1;
+    uint32_t imm19_12 = (instruction >> 12) & 0xFF;
+
+    // Compute full immediate (sign-extended)
+    int32_t imm = (imm20 << 20) | (imm19_12 << 12) | (imm11 << 11) | (imm10_1 << 1);
+    if (imm & (1 << 20)) imm |= 0xFFE00000; // Sign extend
+
+    string key = bitset<7>(opcode).to_string();
+
+    if (ujTypeInstructions.find(key) != ujTypeInstructions.end()) {
+        cout 
+             << ujTypeInstructions[key] << " "
+             << regNames[rd] << ", "<<dec << imm
+             << endl;
     }
 }
 
@@ -106,9 +215,23 @@ int main() {
 
         if (opcode == 0x33) {  // R-type
             decodeRType(machineCode);
-        } else if (opcode == 0x13 || opcode == 0x03) {  // I-type (ADDI, ORI, LW, etc.)
+        } else if (opcode == 0x13 || opcode == 0x67||opcode==0x03) {  // I-type (ADDI, ORI, LW, etc.)
             decodeIType(machineCode);
-        } else {
+        }
+        else if(opcode==0x23){
+            decodeSType(machineCode);
+        }
+        else if(opcode==0x63){
+            decodeSBType(machineCode);
+        }
+
+        else if (opcode==0x17||opcode==0x37) {
+            decodeUType(machineCode);
+        } else if (opcode==0x6f) {
+            decodeUJType(machineCode);
+        }
+
+        else {
             cout << "Unsupported instruction format." << endl;
         }
     }
