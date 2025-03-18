@@ -6,7 +6,7 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-int global_pc;
+int global_pc=0x0;
 
 // Register names (x0 to x31)
 const string regNames[32] = {
@@ -16,6 +16,7 @@ const string regNames[32] = {
     "x24", "x25", "x26", "x27", "x28", "x29", "x30", "x31"
 };
 
+vector<int> RegFile(32, 0);
 
 // 🔹 R-type instructions (opcode + funct3 + funct7 → instruction)
 unordered_map<string, string> rTypeInstructions = {
@@ -69,6 +70,19 @@ unordered_map<string, string> uTypeInstructions = {
 unordered_map<string, string> ujTypeInstructions = {
     {"1101111", "JAL"}    // Jump and Link
 };
+
+//Convention : Anything to do with PC , just call IAG with proper parameters , nothing else
+int IAG(int ra , int imm){
+    if(ra==0 && imm==0){
+        return global_pc=global_pc+4;
+    }
+    else if(ra==0 && imm!=0){
+        return global_pc=global_pc+imm;
+    }
+    else {
+        return global_pc=RegFile[ra]+imm;
+    }
+}
 
 // Function to decode R-type instructions
 void decodeRType(uint32_t instruction) {
