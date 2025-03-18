@@ -2,8 +2,10 @@
 #include <fstream>
 #include <bitset>
 #include <unordered_map>
-
+#include <bits/stdc++.h>
 using namespace std;
+
+int global_pc;
 
 // Register names (x0 to x31)
 const string regNames[32] = {
@@ -132,8 +134,7 @@ void decodeSType(uint32_t instruction) {
                  bitset<3>(funct3).to_string();
 
     if (sTypeInstructions.find(key) != sTypeInstructions.end()) {
-        cout << hex << "0x" << instruction << "  "  // Print machine code
-             << sTypeInstructions[key] << " "
+        cout << sTypeInstructions[key] << " "
              << regNames[rs2] << ", " << imm << "(" << regNames[rs1] << ")"
              << endl;
     }
@@ -208,34 +209,87 @@ int main() {
         return 1;
     }
 
+    vector<uint32_t> instructions;
     uint32_t machineCode;
-    
-    while (inputFile >> hex >> machineCode) {  // Read hexadecimal instructions
-        uint32_t opcode = machineCode & 0x7F;
+    global_pc = 0x0;  // Start PC at 0x0
 
-        if (opcode == 0x33) {  // R-type
-            decodeRType(machineCode);
-        } else if (opcode == 0x13 || opcode == 0x67||opcode==0x03) {  // I-type (ADDI, ORI, LW, etc.)
-            decodeIType(machineCode);
-        }
-        else if(opcode==0x23){
-            decodeSType(machineCode);
-        }
-        else if(opcode==0x63){
-            decodeSBType(machineCode);
-        }
-
-        else if (opcode==0x17||opcode==0x37) {
-            decodeUType(machineCode);
-        } else if (opcode==0x6f) {
-            decodeUJType(machineCode);
-        }
-
-        else {
-            cout << "Unsupported instruction format." << endl;
-        }
+    // Read instructions from file into memory (vector)
+    while (inputFile >> hex >> machineCode) {
+        instructions.push_back(machineCode);
     }
 
     inputFile.close();
+
+    unordered_map<int, int> registers;  // Simulate registers x0 - x31
+    registers[0] = 0;  // x0 is always 0
+
+    // Instruction execution loop
+    while (global_pc / 4 < instructions.size()) {
+        cout << "PC: " << hex << global_pc << "  |  ";
+        uint32_t instruction = instructions[global_pc / 4];  // Fetch instruction
+
+        uint32_t opcode = instruction & 0x7F;
+
+        if (opcode == 0x33) {  // R-type
+            decodeRType(instruction);
+            global_pc += 4;
+        } 
+        else if (opcode == 0x13 || opcode == 0x03) {  // I-type
+            decodeIType(instruction);
+            global_pc += 4;
+        } 
+        else if (opcode == 0x23) {  // S-type
+            decodeSType(instruction);
+            global_pc += 4;
+        } 
+        else if (opcode == 0x63) {  // SB-type (Conditional Branch)
+            int prev_pc = global_pc;  // Store current PC before execution
+            decodeSBType(instruction);
+
+            // Extract rs1, rs2, funct3 for branch conditions
+            uint32_t funct3 = (instruction >> 12) & 0x7;
+            uint32_t rs1 = (instruction >> 15) & 0x1F;
+            uint32_t rs2 = (instruction >> 20) & 0x1F;
+
+            int32_t imm = ((instruction >> 31) & 0x1) << 12 | 
+                          ((instruction >> 7) & 0x1) << 11 | 
+                          ((instruction >> 25) & 0x3F) << 5 | 
+                          ((instruction >> 8) & 0xF) << 1;
+
+            if (imm & 0x1000) imm |= 0xFFFFE000; // Sign extend
+
+            // Apply branch conditions
+            if ((funct3 == 0x0 && registers[rs1] == registers[rs2]) ||  // BEQ
+                (funct3 == 0x1 && registers[rs1] != registers[rs2]) ||  // BNE
+                (funct3 == 0x4 && registers[rs1] < registers[rs2]) ||   // BLT
+                (funct3 == 0x5 && registers[rs1] >= registers[rs2])) {  // BGE
+                global_pc += imm;  // Take branch
+            } else {
+                global_pc += 4;  // Skip branch
+            }
+        } 
+        else if (opcode == 0x17 || opcode == 0x37) {  // U-type
+            decodeUType(instruction);
+            global_pc += 4;
+        } 
+        else if (opcode == 0x6F) {  // UJ-type (JAL)
+            decodeUJType(instruction);
+
+            int32_t imm = ((instruction >> 31) & 0x1) << 20 |
+                          ((instruction >> 12) & 0xFF) << 12 |
+                          ((instruction >> 20) & 0x1) << 11 |
+                          ((instruction >> 21) & 0x3FF) << 1;
+
+            if (imm & 0x100000) imm |= 0xFFE00000; // Sign extend
+
+            global_pc += imm;  // Jump to new address
+        } 
+        else {
+            cout << "Unsupported instruction at PC: " << hex << global_pc << endl;
+            global_pc += 4;  // Skip unsupported instruction
+        }
+    }
+
     return 0;
 }
+
