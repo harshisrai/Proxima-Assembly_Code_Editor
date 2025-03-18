@@ -74,16 +74,20 @@ unordered_map<string, string> ujTypeInstructions = {
 //Convention : Anything to do with PC , just call IAG with proper parameters , nothing else
 int IAG(int ra , int imm){
     if(ra==0 && imm==0){
+        cout<<"IAG Call; new PC: "<<global_pc+4<<endl;
         return global_pc=global_pc+4;
     }
     else if(ra==0 && imm!=0){
+        cout<<"IAG Call; new PC: "<<global_pc+imm<<endl;
         return global_pc=global_pc+imm;
     }
     else {
+        cout<<"IAG Call; new PC: "<<RegFile[ra]+imm<<endl;
         return global_pc=RegFile[ra]+imm;
     }
 }
 
+int PMI 
 // Function to decode R-type instructions
 void decodeRType(uint32_t instruction) {
     uint32_t opcode = instruction & 0x7F;          // bits [6:0]
