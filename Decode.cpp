@@ -8,6 +8,7 @@ using namespace std;
 
 int global_pc=0x0;
 
+
 // Register names (x0 to x31)
 const string regNames[32] = {
     "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7",
@@ -87,7 +88,27 @@ int IAG(int ra , int imm){
     }
 }
 
-int PMI 
+uint32_t ALU(uint32_t val1,uint32_t val2,string OP){
+    if(OP=="ADD"||OP=="ADDI"||OP=="LB"||OP=="LD"||OP=="LH"||OP=="LW"||OP=="JALR"||OP=="JAL"||OP=="SB"||OP=="SH"||OP=="SD"||OP=="SW"||OP=="BLT"||OP=="BEQ"||OP=="BGE"||OP=="BNE"){
+        return val1+val2;
+    }
+    else if(OP=="AND"||OP=="ANDI")return val1&val2;
+    else if(OP=="OR"||OP=="ORI")return val1|val2;
+    else if(OP=="MUL")return val1*val2;
+    else if(OP=="DIV")return val1/val2;
+    else if(OP=="REM")return val1%val2;
+    else if(OP=="XOR")return val1^val2;
+    else if(OP=="SUB")return val1-val2;
+    else if(OP=="SLL")return val1<<val2;
+    else if(OP=="SLT")return val1<val2;
+    else if(OP=="SRL")return val1>>val2;
+    else if(OP=="SRA")return (int32_t)val1 >> val2;
+
+
+
+}
+
+int PMI ;
 // Function to decode R-type instructions
 void decodeRType(uint32_t instruction) {
     uint32_t opcode = instruction & 0x7F;          // bits [6:0]
