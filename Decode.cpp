@@ -109,7 +109,7 @@ int PMI(int EA, int pc, int data, int ra, string action = NULL)
     else
     {
         cout << "PMI Call; Fetching instruction from memory address " << pc << endl;
-        IR = InstructionPCPairs[pc].second;
+        IR=InstructionPCPairs[pc].second;
         return 0;
     }
 }
