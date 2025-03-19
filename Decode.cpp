@@ -4,6 +4,8 @@
 #include <bitset>
 #include <unordered_map>
 #include <bits/stdc++.h>
+#include <thread>
+#include <chrono>
 using namespace std;
 
 int global_pc = 0x0;
@@ -432,11 +434,15 @@ int main()
 
         // ----- FETCH STAGE -----
         cout << "\n----- FETCH STAGE -----" << endl;
+        //sleep for 100 milliseconds
+        this_thread::sleep_for(chrono::milliseconds(100));
         PMI(0, current_pc, 0, 0);  // This call fetches the instruction into IR.
         cout << "[MAIN] Fetched Instruction: 0x" << hex << IR << dec << endl;
 
         // ----- DECODE STAGE -----
         cout << "\n----- DECODE STAGE -----" << endl;
+        //sleep for 100 milliseconds
+        this_thread::sleep_for(chrono::milliseconds(100));
         uint32_t opcode = IR & 0x7F;
         vector<string> info;
         int alu_output = 0;
@@ -458,6 +464,8 @@ int main()
 
         // ----- EXECUTE STAGE -----
         cout << "\n----- EXECUTE STAGE -----" << endl;
+        //sleep for 100 milliseconds
+        this_thread::sleep_for(chrono::milliseconds(100));
         if (opcode == 0x33)
         { // R-type instruction (e.g., ADD, SUB, etc.)
             alu_output = Execute("R", info[0], info[1], info[2], info[3], "");
@@ -491,6 +499,8 @@ int main()
 
         // ----- MEMORY STAGE -----
         cout << "\n----- MEMORY STAGE -----" << endl;
+        //sleep for 100 milliseconds
+        this_thread::sleep_for(chrono::milliseconds(100));
         if (opcode == 0x23)
         { // S-type: store operation has already computed the effective address.
             PMI(alu_output, current_pc, RegFile[stoi(info[1])], 0, "write");
@@ -503,6 +513,8 @@ int main()
 
         // ----- WRITE-BACK STAGE -----
         cout << "\n----- WRITE-BACK STAGE -----" << endl;
+        //sleep for 100 milliseconds
+        this_thread::sleep_for(chrono::milliseconds(100));
         if (opcode == 0x33)
         { // R-type
             if (info[1] != "0")
@@ -522,6 +534,8 @@ int main()
 
         // ----- PC UPDATE -----
         cout << "\n----- PC UPDATE -----" << endl;
+        //sleep for 100 milliseconds
+        this_thread::sleep_for(chrono::milliseconds(100));
         if (opcode == 0x67)
         { // JALR
             global_pc = alu_output;
