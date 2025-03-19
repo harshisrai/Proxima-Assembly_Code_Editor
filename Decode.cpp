@@ -93,7 +93,7 @@ int IAG(int ra, int imm)
 }
 
 // Convention : If action==write , then load , if action==read then store, if action==NULL then fetch instruction
-int PMI(int EA, int pc, int data, int ra, string action = NULL)
+int PMI(int EA, int pc, int data, int ra, string action ="")
 {
     if (action == "write")
     {
@@ -103,14 +103,14 @@ int PMI(int EA, int pc, int data, int ra, string action = NULL)
     }
     else if (action == "read")
     {
-        cout << "PMI Call; Reading from memory address " << EA <<"and writiing to register x"<<ra<<endl;
+        cout << "PMI Call; Reading from memory address " << EA << "and writiing to register x" << ra << endl;
         // WriteBack(MainMemory[EA], ra);
         return 0;
     }
     else
     {
         cout << "PMI Call; Fetching instruction from memory address " << pc << endl;
-        IR=InstructionPCPairs[pc].second;
+        IR = InstructionPCPairs[pc].second;
         return 0;
     }
 }
@@ -153,14 +153,17 @@ uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
         rz = (int32_t)(val1 >> val2);
         return rz;
     }
-    else if(OP=="LUI"){
-        return val1<<12;
+    else if (OP == "LUI")
+    {
+        return val1 << 12;
     }
-    else if(OP=="AUIPC"){
-        return (val1<<12)+val2;
+    else if (OP == "AUIPC")
+    {
+        return (val1 << 12) + val2;
     }
-    else{
-        cout<<"Invalid Operation in ALU"<<endl;
+    else
+    {
+        cout << "Invalid Operation in ALU" << endl;
         return 0;
     }
 }
@@ -168,7 +171,7 @@ uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
 // Function to decode R-type instructions
 vector<string> decodeRType(uint32_t instruction)
 {
-    cout<<"Decoding instruction "<<hex<<instruction<<endl;
+    cout << "Decoding instruction " << hex << instruction << endl;
     uint32_t opcode = instruction & 0x7F;         // bits [6:0]
     uint32_t rd = (instruction >> 7) & 0x1F;      // bits [11:7]
     uint32_t funct3 = (instruction >> 12) & 0x7;  // bits [14:12]
@@ -189,7 +192,7 @@ vector<string> decodeRType(uint32_t instruction)
 
 vector<string> decodeIType(uint32_t instruction)
 {
-    cout<<"Decoding instruction "<<hex<<instruction<<endl;
+    cout << "Decoding instruction " << hex << instruction << endl;
     uint32_t opcode = instruction & 0x7F;
     uint32_t rd = (instruction >> 7) & 0x1F;
     uint32_t funct3 = (instruction >> 12) & 0x7;
@@ -210,7 +213,7 @@ vector<string> decodeIType(uint32_t instruction)
 
 vector<string> decodeSType(uint32_t instruction)
 {
-    cout<<"Decoding instruction "<<hex<<instruction<<endl;
+    cout << "Decoding instruction " << hex << instruction << endl;
     uint32_t opcode = instruction & 0x7F;
     uint32_t imm4_0 = (instruction >> 7) & 0x1F;
     uint32_t funct3 = (instruction >> 12) & 0x7;
@@ -234,7 +237,7 @@ vector<string> decodeSType(uint32_t instruction)
 
 vector<string> decodeSBType(uint32_t instruction)
 {
-    cout<<"Decoding instruction "<<hex<<instruction<<endl;
+    cout << "Decoding instruction " << hex << instruction << endl;
     uint32_t opcode = instruction & 0x7F;
     uint32_t imm11 = (instruction >> 7) & 0x1;
     uint32_t imm4_1 = (instruction >> 8) & 0xF;
@@ -259,7 +262,7 @@ vector<string> decodeSBType(uint32_t instruction)
 
 vector<string> decodeUType(uint32_t instruction)
 {
-    cout<<"Decoding instruction "<<hex<<instruction<<endl;
+    cout << "Decoding instruction " << hex << instruction << endl;
     uint32_t opcode = instruction & 0x7F;
     uint32_t rd = (instruction >> 7) & 0x1F;
     uint32_t imm = (instruction >> 12);
@@ -275,7 +278,7 @@ vector<string> decodeUType(uint32_t instruction)
 
 vector<string> decodeUJType(uint32_t instruction)
 {
-    cout<<"Decoding instruction "<<hex<<instruction<<endl;
+    cout << "Decoding instruction " << hex << instruction << endl;
     uint32_t opcode = instruction & 0x7F;
     uint32_t rd = (instruction >> 7) & 0x1F;
     uint32_t imm19_12 = (instruction >> 12) & 0xFF;
@@ -318,22 +321,26 @@ int Execute(string Type, string op, string rd, string rs1, string rs2, string im
         return ALU(RegFile[stoi(rs1)], RegFile[stoi(rs2)], op);
     }
 
-    else if(Type=="S"){
-        cout<<"ALU calculating effective address using register x"<<rs1<<" and immediate "<<imm<<endl;
-        return ALU(RegFile[stoi(rs1)],stoi(imm),op);
+    else if (Type == "S")
+    {
+        cout << "ALU calculating effective address using register x" << rs1 << " and immediate " << imm << endl;
+        return ALU(RegFile[stoi(rs1)], stoi(imm), op);
     }
-    else if(Type=="U"){
-        cout<<"ALU performing "<<op<<"on immediate "<<imm<<endl;
-        return ALU(stoi(imm),global_pc,op);
+    else if (Type == "U")
+    {
+        cout << "ALU performing " << op << "on immediate " << imm << endl;
+        return ALU(stoi(imm), global_pc, op);
     }
-    else{
-        cout<<"Invalid Instruction Type in Execute Stage"<<endl;
+    else
+    {
+        cout << "Invalid Instruction Type in Execute Stage" << endl;
         return 0;
     }
 }
 
-void WriteBack(int val,int rd){
-    cout<<"Writing value "<<val<<" to register x"<<rd<<endl;
+void WriteBack(int val, int rd)
+{
+    cout << "Writing value " << val << " to register x" << rd << endl;
     RegFile[rd] = val;
 }
 
@@ -353,26 +360,66 @@ int main()
     uint32_t machineCode;
     int pc;
 
-    // Read instructions from the file and store them in the global InstructionPCPairs vector.
+    // Read the file line by line and update both InstructionPCPairs and MainMemory.
+    bool readingInstructions = true;
     while (getline(inputFile, line))
     {
-        istringstream iss(line);
-        string address, machineCodeStr;
-
-        // Read the address and machine code from each line.
-        if (!(iss >> address >> machineCodeStr))
+        // Skip empty lines.
+        if (line.empty())
             continue;
 
-        // Remove trailing ':' from address if present.
-        if (address.back() == ':')
-            address.pop_back();
+        // Check if we have reached the end of the instruction segment.
+        if (line.find("#end of text segment") != string::npos)
+        {
+            readingInstructions = false;
+            continue;
+        }
 
-        // Convert the address (PC) and machine code from hexadecimal to integers.
-        pc = stoi(address, nullptr, 16);
-        machineCode = stoul(machineCodeStr, nullptr, 16);
+        // When reading the instruction segment:
+        if (readingInstructions)
+        {
+            // Skip header lines (for example, those containing "Address")
+            if (line.find("Address") != string::npos)
+                continue;
 
-        // Save the pair (PC, machine code) to the instruction memory.
-        InstructionPCPairs.emplace_back(pc, machineCode);
+            istringstream iss(line);
+            string address, machineCodeStr;
+
+            // Read the address and machine code from each line.
+            if (!(iss >> address >> machineCodeStr))
+                continue;
+
+            // Remove trailing ':' from address if present.
+            if (!address.empty() && address.back() == ':')
+                address.pop_back();
+
+            // Convert the address (PC) and machine code from hexadecimal to integers.
+            pc = stoi(address, nullptr, 16);
+            machineCode = stoul(machineCodeStr, nullptr, 16);
+
+            // Save the pair (PC, machine code) to the instruction memory.
+            InstructionPCPairs.emplace_back(pc, machineCode);
+        }
+        else
+        {
+            // Reading the data segment.
+            // Skip header lines (for example, those containing "Memory")
+            if (line.find("Memory") != string::npos)
+                continue;
+
+            istringstream iss(line);
+            string memAddrStr, memValStr;
+
+            if (!(iss >> memAddrStr >> memValStr))
+                continue;
+
+            // Convert memory address and value from hexadecimal to integers.
+            uint32_t memAddr = stoi(memAddrStr, nullptr, 16);
+            uint32_t memVal = stoul(memValStr, nullptr, 16);
+
+            // Update MainMemory with the value at this address.
+            MainMemory[memAddr] = memVal;
+        }
     }
     inputFile.close();
 
@@ -382,7 +429,7 @@ int main()
         // --- Fetch Stage ---
         // Use the current PC to fetch the instruction.
         int current_pc = global_pc;
-        PMI(0, current_pc, 0, 0);  // This call fetches the instruction into IR.
+        PMI(0, current_pc, 0, 0); // This call fetches the instruction into IR.
 
         // --- Decode Stage ---
         uint32_t opcode = IR & 0x7F;
@@ -395,7 +442,7 @@ int main()
             // Decode: info = {op, rd, rs1, rs2}
             info = decodeRType(IR);
             alu_output = Execute("R", info[0], info[1], info[2], info[3], "");
-           WriteBack(alu_output,stoi(info[1]));
+            WriteBack(alu_output, stoi(info[1]));
 
             // Write-back: Update destination register (if not x0).
             if (info[1] != "0")
@@ -409,7 +456,8 @@ int main()
             // Decode: info = {op, rd, rs1, imm}
             info = decodeIType(IR);
             alu_output = Execute("I", info[0], info[1], info[2], "", info[3]);
-            if(opcode!=0x67)WriteBack(alu_output,stoi(info[1]));
+            if (opcode != 0x67)
+                WriteBack(alu_output, stoi(info[1]));
 
             // For JALR, update PC with the result from the ALU.
             if (opcode == 0x67)
@@ -492,4 +540,3 @@ int main()
 
     return 0;
 }
-
