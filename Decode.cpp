@@ -7,6 +7,7 @@
 using namespace std;
 
 int global_pc=0x0;
+int32_t rz;
 
 
 // Register names (x0 to x31)
@@ -92,17 +93,17 @@ uint32_t ALU(uint32_t val1,uint32_t val2,string OP){
     if(OP=="ADD"||OP=="ADDI"||OP=="LB"||OP=="LD"||OP=="LH"||OP=="LW"||OP=="JALR"||OP=="JAL"||OP=="SB"||OP=="SH"||OP=="SD"||OP=="SW"||OP=="BLT"||OP=="BEQ"||OP=="BGE"||OP=="BNE"){
         return val1+val2;
     }
-    else if(OP=="AND"||OP=="ANDI")return val1&val2;
-    else if(OP=="OR"||OP=="ORI")return val1|val2;
-    else if(OP=="MUL")return val1*val2;
-    else if(OP=="DIV")return val1/val2;
-    else if(OP=="REM")return val1%val2;
-    else if(OP=="XOR")return val1^val2;
-    else if(OP=="SUB")return val1-val2;
-    else if(OP=="SLL")return val1<<val2;
-    else if(OP=="SLT")return val1<val2;
-    else if(OP=="SRL")return val1>>val2;
-    else if(OP=="SRA")return (int32_t)val1 >> val2;
+    else if(OP=="AND"||OP=="ANDI")return rz = val1&val2;
+    else if(OP=="OR"||OP=="ORI")return rz = val1|val2;
+    else if(OP=="MUL")return rz = val1*val2;
+    else if(OP=="DIV")return rz = val1/val2;
+    else if(OP=="REM")return rz = val1%val2;
+    else if(OP=="XOR")return rz = val1^val2;
+    else if(OP=="SUB")return rz = val1-val2;
+    else if(OP=="SLL")return rz = val1<<val2;
+    else if(OP=="SLT")return rz = val1<val2;
+    else if(OP=="SRL")return rz = val1>>val2;
+    else if(OP=="SRA")return (int32_t)rz = val1 >> val2;
 
 
 
