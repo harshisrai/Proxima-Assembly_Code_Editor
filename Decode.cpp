@@ -168,6 +168,7 @@ uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
 // Function to decode R-type instructions
 vector<string> decodeRType(uint32_t instruction)
 {
+    cout<<"Decoding instruction "<<hex<<instruction<<endl;
     uint32_t opcode = instruction & 0x7F;         // bits [6:0]
     uint32_t rd = (instruction >> 7) & 0x1F;      // bits [11:7]
     uint32_t funct3 = (instruction >> 12) & 0x7;  // bits [14:12]
@@ -188,6 +189,7 @@ vector<string> decodeRType(uint32_t instruction)
 
 vector<string> decodeIType(uint32_t instruction)
 {
+    cout<<"Decoding instruction "<<hex<<instruction<<endl;
     uint32_t opcode = instruction & 0x7F;
     uint32_t rd = (instruction >> 7) & 0x1F;
     uint32_t funct3 = (instruction >> 12) & 0x7;
@@ -208,6 +210,7 @@ vector<string> decodeIType(uint32_t instruction)
 
 vector<string> decodeSType(uint32_t instruction)
 {
+    cout<<"Decoding instruction "<<hex<<instruction<<endl;
     uint32_t opcode = instruction & 0x7F;
     uint32_t imm4_0 = (instruction >> 7) & 0x1F;
     uint32_t funct3 = (instruction >> 12) & 0x7;
@@ -231,6 +234,7 @@ vector<string> decodeSType(uint32_t instruction)
 
 vector<string> decodeSBType(uint32_t instruction)
 {
+    cout<<"Decoding instruction "<<hex<<instruction<<endl;
     uint32_t opcode = instruction & 0x7F;
     uint32_t imm11 = (instruction >> 7) & 0x1;
     uint32_t imm4_1 = (instruction >> 8) & 0xF;
@@ -255,6 +259,7 @@ vector<string> decodeSBType(uint32_t instruction)
 
 vector<string> decodeUType(uint32_t instruction)
 {
+    cout<<"Decoding instruction "<<hex<<instruction<<endl;
     uint32_t opcode = instruction & 0x7F;
     uint32_t rd = (instruction >> 7) & 0x1F;
     uint32_t imm = (instruction >> 12);
@@ -270,6 +275,7 @@ vector<string> decodeUType(uint32_t instruction)
 
 vector<string> decodeUJType(uint32_t instruction)
 {
+    cout<<"Decoding instruction "<<hex<<instruction<<endl;
     uint32_t opcode = instruction & 0x7F;
     uint32_t rd = (instruction >> 7) & 0x1F;
     uint32_t imm19_12 = (instruction >> 12) & 0xFF;
@@ -294,27 +300,30 @@ int Execute(string Type, string op, string rd, string rs1, string rs2, string im
 {
     if (Type == "R")
     {
-        cout << "Performing " << op << " operation on registers " << "x" << rs1 << " & " << "x" << rs2 << endl;
+        cout << " ALU Performing " << op << " operation on registers " << "x" << rs1 << " & " << "x" << rs2 << endl;
         uint32_t val = ALU(RegFile[stoi(rs1)], RegFile[stoi(rs2)], op);
 
         return val;
     }
     else if (Type == "I")
     {
-        cout << "Performing " << op << " operation on register " << "x" << rs1 << " with immediate " << imm << endl;
+        cout << " ALU Performing " << op << " operation on register " << "x" << rs1 << " with immediate " << imm << endl;
         uint32_t val = ALU(RegFile[stoi(rs1)], stoi(imm), op);
 
         return val;
     }
     else if (Type == "SB")
     {
+        cout << " ALU Performing " << op << " operation on registers " << "x" << rs1 << " & " << "x" << rs2 << endl;
         return ALU(RegFile[stoi(rs1)], RegFile[stoi(rs2)], op);
     }
 
     else if(Type=="S"){
+        cout<<"ALU calculating effective address using register x"<<rs1<<" and immediate "<<imm<<endl;
         return ALU(RegFile[stoi(rs1)],stoi(imm),op);
     }
     else if(Type=="U"){
+        cout<<"ALU performing "<<op<<"on immediate "<<imm<<endl;
         return ALU(stoi(imm),global_pc,op);
     }
     else{
@@ -322,6 +331,12 @@ int Execute(string Type, string op, string rd, string rs1, string rs2, string im
         return 0;
     }
 }
+
+void WriteBack(int val,int rd){
+    cout<<"Writing value "<<val<<" to register x"<<rd<<endl;
+    RegFile[rd] = val;
+}
+
 int main()
 {
     ifstream inputFile("input.mc"); // Open the input file containing machine code.
@@ -380,6 +395,7 @@ int main()
             // Decode: info = {op, rd, rs1, rs2}
             info = decodeRType(IR);
             alu_output = Execute("R", info[0], info[1], info[2], info[3], "");
+           WriteBack(alu_output,stoi(info[1]));
 
             // Write-back: Update destination register (if not x0).
             if (info[1] != "0")
@@ -393,6 +409,7 @@ int main()
             // Decode: info = {op, rd, rs1, imm}
             info = decodeIType(IR);
             alu_output = Execute("I", info[0], info[1], info[2], "", info[3]);
+            if(opcode!=0x67)WriteBack(alu_output,stoi(info[1]));
 
             // For JALR, update PC with the result from the ALU.
             if (opcode == 0x67)
