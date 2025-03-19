@@ -9,6 +9,7 @@ using namespace std;
 int global_pc = 0x0;
 uint32_t IR = 0x0;
 vector<pair<int, int>> InstructionPCPairs;
+unordered_map<uint32_t, uint32_t> MainMemory;
 int32_t rz;
 
 // Register names (x0 to x31)
@@ -97,13 +98,13 @@ int PMI(int EA, int pc, int data, int ra, string action = NULL)
     if (action == "write")
     {
         cout << "PMI Call; Writing " << data << " to memory address " << EA << endl;
-        // Update Main Memory with data , to be filled later
+        MainMemory[EA] = data;
         return 0;
     }
     else if (action == "read")
     {
-        cout << "PMI Call; Reading from memory address " << EA << endl;
-        // Read from Main Memory and fill RegFile , to be filled later
+        cout << "PMI Call; Reading from memory address " << EA <<"and writiing to register x"<<ra<<endl;
+        // WriteBack(MainMemory[EA], ra);
         return 0;
     }
     else
@@ -157,6 +158,10 @@ uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
     }
     else if(OP=="AUIPC"){
         return (val1<<12)+val2;
+    }
+    else{
+        cout<<"Invalid Operation in ALU"<<endl;
+        return 0;
     }
 }
 
@@ -312,117 +317,162 @@ int Execute(string Type, string op, string rd, string rs1, string rs2, string im
     else if(Type=="U"){
         return ALU(stoi(imm),global_pc,op);
     }
+    else{
+        cout<<"Invalid Instruction Type in Execute Stage"<<endl;
+        return 0;
+    }
 }
-
 int main()
 {
-    ifstream inputFile("input.mc"); // Open input file
+    ifstream inputFile("input.mc"); // Open the input file containing machine code.
     if (!inputFile)
     {
         cerr << "Error: Unable to open input.mc" << endl;
         return 1;
     }
 
-    vector<uint32_t> instructions;
-    vector<pair<int, uint32_t>> InstructionPCPairs;
+    // Clear the global instruction memory vector.
+    InstructionPCPairs.clear();
 
     string line;
     uint32_t machineCode;
     int pc;
 
+    // Read instructions from the file and store them in the global InstructionPCPairs vector.
     while (getline(inputFile, line))
     {
         istringstream iss(line);
         string address, machineCodeStr;
 
-        // Read the address and machine code
+        // Read the address and machine code from each line.
         if (!(iss >> address >> machineCodeStr))
             continue;
 
-        // Convert address (PC) from hex string to int
+        // Remove trailing ':' from address if present.
         if (address.back() == ':')
-            address.pop_back(); // Remove trailing ':'
+            address.pop_back();
 
+        // Convert the address (PC) and machine code from hexadecimal to integers.
         pc = stoi(address, nullptr, 16);
-
-        // Convert machine code from hex string to uint32_t
         machineCode = stoul(machineCodeStr, nullptr, 16);
 
-        instructions.push_back(machineCode);
+        // Save the pair (PC, machine code) to the instruction memory.
         InstructionPCPairs.emplace_back(pc, machineCode);
     }
-
     inputFile.close();
-    vector<string> info;
 
-    // Instruction execution loop
-    while (global_pc / 4 < instructions.size())
+    // Main simulation loop: continues as long as there are instructions to execute.
+    while (global_pc / 4 < InstructionPCPairs.size())
     {
-        // cout << "PC: " << hex << global_pc << "  |  ";
-        IR = instructions[global_pc / 4]; // Fetch instruction
+        // --- Fetch Stage ---
+        // Use the current PC to fetch the instruction.
+        int current_pc = global_pc;
+        PMI(0, current_pc, 0, 0);  // This call fetches the instruction into IR.
 
+        // --- Decode Stage ---
         uint32_t opcode = IR & 0x7F;
-        int alu_output;
+        vector<string> info;
+        int alu_output = 0;
 
+        // --- Execute and Write-back Stages ---
         if (opcode == 0x33)
-        { // R-type
-          // info = {op,rd,rs1,rs2}
+        { // R-type instruction (e.g., ADD, SUB, etc.)
+            // Decode: info = {op, rd, rs1, rs2}
             info = decodeRType(IR);
-           alu_output =  Execute("R", info[0], info[1], info[2], info[3], "");
+            alu_output = Execute("R", info[0], info[1], info[2], info[3], "");
 
-            global_pc += 4;
+            // Write-back: Update destination register (if not x0).
+            if (info[1] != "0")
+                RegFile[stoi(info[1])] = alu_output;
+
+            // PC update: Move to next instruction.
+            global_pc = IAG(0, 4);
         }
-        else if (opcode == 0x13 || opcode == 0x03||opcode==0x67)
-        { // I-type
-            // info =  {op,rd,rs1,imm}
-
+        else if (opcode == 0x13 || opcode == 0x03 || opcode == 0x67)
+        { // I-type instruction (ADDI, LW, JALR, etc.)
+            // Decode: info = {op, rd, rs1, imm}
             info = decodeIType(IR);
-           alu_output =  Execute("I", info[0], info[1], info[2], "", info[3]);
-            if(opcode==0x67)global_pc = alu_output;
-            else global_pc += 4;
+            alu_output = Execute("I", info[0], info[1], info[2], "", info[3]);
+
+            // For JALR, update PC with the result from the ALU.
+            if (opcode == 0x67)
+            {
+                global_pc = alu_output;
+            }
+            else
+            {
+                // Write-back: Update destination register if not x0.
+                if (info[1] != "0")
+                    RegFile[stoi(info[1])] = alu_output;
+
+                // PC update: Sequential instruction.
+                global_pc = IAG(0, 4);
+            }
         }
         else if (opcode == 0x23)
-        { // S-type
+        { // S-type instruction (store operations: SB, SH, SW, SD)
+            // Decode: info = {op, rs2, rs1, imm}
             info = decodeSType(IR);
-            global_pc += 4;
+
+            // Compute effective address: EA = RegFile[rs1] + imm.
+            int effective_addr = ALU(RegFile[stoi(info[2])], stoi(info[3]), info[0]);
+
+            // Perform the store: write the value from register rs2 to data memory.
+            PMI(effective_addr, current_pc, RegFile[stoi(info[1])], 0, "write");
+
+            // PC update: Move to next instruction.
+            global_pc = IAG(0, 4);
         }
         else if (opcode == 0x63)
-        {                            // SB-type (Conditional Branch)
-            int prev_pc = global_pc; // Store current PC before execution
-
-            // info = {op,rs1,rs2,imm}
-
+        { // SB-type instruction (conditional branches: BEQ, BNE, etc.)
+            // Decode: info = {op, rs1, rs2, imm}
             info = decodeSBType(IR);
 
-            // branch is either 1/0 and is calculated by ALU called via Execute.
-
-            int branch = Execute("SB", info[0], "", info[1], info[2], info[3]);
-
-            if (branch)
-                global_pc += stoi(info[3]);
+            // Evaluate branch condition.
+            int branch_taken = Execute("SB", info[0], "", info[1], info[2], info[3]);
+            if (branch_taken)
+            {
+                // Branch taken: update PC with the branch offset.
+                global_pc = IAG(0, stoi(info[3]));
+            }
             else
-                global_pc += 4;
+            {
+                // Branch not taken: go to next sequential instruction.
+                global_pc = IAG(0, 4);
+            }
         }
         else if (opcode == 0x17 || opcode == 0x37)
-        { // U-type
+        { // U-type instruction (AUIPC, LUI)
+            // Decode: info = {op, rd, imm}
             info = decodeUType(IR);
-            alu_output = Execute("U",info[0],info[1],"","",info[2]);
-            global_pc += 4;
+            alu_output = Execute("U", info[0], info[1], "", "", info[2]);
+
+            // Write-back: Update destination register if not x0.
+            if (info[1] != "0")
+                RegFile[stoi(info[1])] = alu_output;
+
+            // PC update: Sequential instruction.
+            global_pc = IAG(0, 4);
         }
         else if (opcode == 0x6F)
-        { // UJ-type (JAL)
+        { // UJ-type instruction (JAL)
+            // Decode: info = {op, rd, imm}
             info = decodeUJType(IR);
 
-            int imm = stoi(info[2]);
+            // Write-back: For JAL, save the return address (PC+4) in rd.
+            if (info[1] != "0")
+                RegFile[stoi(info[1])] = global_pc + 4;
 
-            global_pc += imm; // Jump to new address
+            // PC update: Jump to the target address using the immediate.
+            global_pc = IAG(0, stoi(info[2]));
         }
         else
         {
             cout << "Unsupported instruction at PC: " << hex << global_pc << endl;
-            global_pc += 4; // Skip unsupported instruction
+            global_pc = IAG(0, 4); // Skip unsupported instruction.
         }
     }
 
     return 0;
 }
+
