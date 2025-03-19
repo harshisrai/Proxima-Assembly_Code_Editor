@@ -152,6 +152,12 @@ uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
         rz = (int32_t)(val1 >> val2);
         return rz;
     }
+    else if(OP=="LUI"){
+        return val1<<12;
+    }
+    else if(OP=="AUIPC"){
+        return (val1<<12)+val2;
+    }
 }
 
 // Function to decode R-type instructions
@@ -299,6 +305,13 @@ int Execute(string Type, string op, string rd, string rs1, string rs2, string im
     {
         return ALU(RegFile[stoi(rs1)], RegFile[stoi(rs2)], op);
     }
+
+    else if(Type=="S"){
+        return ALU(RegFile[stoi(rs1)],stoi(imm),op);
+    }
+    else if(Type=="U"){
+        return ALU(stoi(imm),global_pc,op);
+    }
 }
 
 int main()
@@ -349,23 +362,24 @@ int main()
         IR = instructions[global_pc / 4]; // Fetch instruction
 
         uint32_t opcode = IR & 0x7F;
+        int alu_output;
 
         if (opcode == 0x33)
         { // R-type
           // info = {op,rd,rs1,rs2}
             info = decodeRType(IR);
-            Execute("R", info[0], info[1], info[2], info[3], "");
+           alu_output =  Execute("R", info[0], info[1], info[2], info[3], "");
 
             global_pc += 4;
         }
-        else if (opcode == 0x13 || opcode == 0x03)
+        else if (opcode == 0x13 || opcode == 0x03||opcode==0x67)
         { // I-type
             // info =  {op,rd,rs1,imm}
 
             info = decodeIType(IR);
-            Execute("I", info[0], info[1], info[2], "", info[3]);
-
-            global_pc += 4;
+           alu_output =  Execute("I", info[0], info[1], info[2], "", info[3]);
+            if(opcode==0x67)global_pc = alu_output;
+            else global_pc += 4;
         }
         else if (opcode == 0x23)
         { // S-type
@@ -392,6 +406,7 @@ int main()
         else if (opcode == 0x17 || opcode == 0x37)
         { // U-type
             info = decodeUType(IR);
+            alu_output = Execute("U",info[0],info[1],"","",info[2]);
             global_pc += 4;
         }
         else if (opcode == 0x6F)
