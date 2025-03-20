@@ -10,7 +10,7 @@ using namespace std;
 
 int global_pc = 0x0;
 uint32_t IR = 0x0;
-vector<pair<int, int>> InstructionPCPairs;
+vector<pair<int, uint32_t>> InstructionPCPairs;
 unordered_map<uint32_t, uint32_t> MainMemory;
 int32_t rz;
 
@@ -74,6 +74,12 @@ unordered_map<string, string> ujTypeInstructions = {
     {"1101111", "JAL"} // Jump and Link
 };
 
+void WriteBack(int val, int rd)
+{
+    cout << "Writing value " << val << " to register x" << dec << rd << endl;
+    RegFile[rd] = val;
+}
+
 // Convention : Anything to do with PC , just call IAG with proper parameters , nothing else
 int IAG(int ra, int imm)
 {
@@ -95,25 +101,22 @@ int IAG(int ra, int imm)
 }
 
 // Convention : If action==write , then load , if action==read then store, if action==NULL then fetch instruction
-int PMI(int EA, int pc, int data, int ra, string action = "")
+void PMI(int EA, int pc, int data, int ra, string action = "")
 {
     if (action == "write")
     {
         cout << "PMI Call; Writing " << data << " to memory address " << EA << endl;
         MainMemory[EA] = data;
-        return 0;
     }
     else if (action == "read")
     {
         cout << "PMI Call; Reading from memory address " << EA << "and writiing to register x" << ra << endl;
-        // WriteBack(MainMemory[EA], ra);
-        return 0;
+        WriteBack(MainMemory[EA], ra);
     }
     else
     {
-        cout << "PMI Call; Fetching instruction from memory address " << pc << endl;
-        IR = InstructionPCPairs[pc].second;
-        return 0;
+        cout << "PMI Call; Fetching instruction from PC " << pc << endl;
+        IR = InstructionPCPairs[(pc / 4)].second;
     }
 }
 uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
@@ -340,12 +343,6 @@ int Execute(string Type, string op, string rd, string rs1, string rs2, string im
     }
 }
 
-void WriteBack(int val, int rd)
-{
-    cout << "Writing value " << val << " to register x" << rd << endl;
-    RegFile[rd] = val;
-}
-
 int main()
 {
     ifstream inputFile("input.mc"); // Open the input file containing machine code.
@@ -424,8 +421,13 @@ int main()
         }
     }
     inputFile.close();
-
+    int clock=0;
     // Main simulation loop: continues as long as there are instructions to execute.
+    // print instructionpcpairs
+    // for (auto &pair : InstructionPCPairs)
+    // {
+    //     cout << "PC:" <<  pair.first << " Instruction" << pair.second << dec << endl;
+    // }
     while (global_pc / 4 < InstructionPCPairs.size())
     {
         cout << "============================" << endl;
@@ -434,37 +436,37 @@ int main()
 
         // ----- FETCH STAGE -----
         cout << "\n----- FETCH STAGE -----" << endl;
-        //sleep for 100 milliseconds
+        // sleep for 100 milliseconds
         this_thread::sleep_for(chrono::milliseconds(100));
-        PMI(0, current_pc, 0, 0);  // This call fetches the instruction into IR.
+        PMI(0, current_pc, 0, 0); // This call fetches the instruction into IR.
         cout << "[MAIN] Fetched Instruction: 0x" << hex << IR << dec << endl;
 
         // ----- DECODE STAGE -----
         cout << "\n----- DECODE STAGE -----" << endl;
-        //sleep for 100 milliseconds
+        // sleep for 100 milliseconds
         this_thread::sleep_for(chrono::milliseconds(100));
         uint32_t opcode = IR & 0x7F;
         vector<string> info;
         int alu_output = 0;
         // The decode functions themselves print the decoded information.
-        if (opcode == 0x33)            // R-type
+        if (opcode == 0x33) // R-type
             info = decodeRType(IR);
         else if (opcode == 0x13 || opcode == 0x03 || opcode == 0x67) // I-type
             info = decodeIType(IR);
-        else if (opcode == 0x23)        // S-type
+        else if (opcode == 0x23) // S-type
             info = decodeSType(IR);
-        else if (opcode == 0x63)        // SB-type
+        else if (opcode == 0x63) // SB-type
             info = decodeSBType(IR);
         else if (opcode == 0x17 || opcode == 0x37) // U-type
             info = decodeUType(IR);
-        else if (opcode == 0x6F)        // UJ-type
+        else if (opcode == 0x6F) // UJ-type
             info = decodeUJType(IR);
         else
             cout << "[DECODE] Unsupported instruction at PC: 0x" << hex << global_pc << dec << endl;
 
         // ----- EXECUTE STAGE -----
         cout << "\n----- EXECUTE STAGE -----" << endl;
-        //sleep for 100 milliseconds
+        // sleep for 100 milliseconds
         this_thread::sleep_for(chrono::milliseconds(100));
         if (opcode == 0x33)
         { // R-type instruction (e.g., ADD, SUB, etc.)
@@ -489,7 +491,7 @@ int main()
             alu_output = Execute("U", info[0], info[1], "", "", info[2]);
         }
         else if (opcode == 0x6F)
-        { // UJ-type instruction (JAL)
+        {                   // UJ-type instruction (JAL)
             alu_output = 0; // For JAL, write-back is handled separately.
         }
         else
@@ -499,7 +501,7 @@ int main()
 
         // ----- MEMORY STAGE -----
         cout << "\n----- MEMORY STAGE -----" << endl;
-        //sleep for 100 milliseconds
+        // sleep for 100 milliseconds
         this_thread::sleep_for(chrono::milliseconds(100));
         if (opcode == 0x23)
         { // S-type: store operation has already computed the effective address.
@@ -513,7 +515,7 @@ int main()
 
         // ----- WRITE-BACK STAGE -----
         cout << "\n----- WRITE-BACK STAGE -----" << endl;
-        //sleep for 100 milliseconds
+        // sleep for 100 milliseconds
         this_thread::sleep_for(chrono::milliseconds(100));
         if (opcode == 0x33)
         { // R-type
@@ -534,7 +536,7 @@ int main()
 
         // ----- PC UPDATE -----
         cout << "\n----- PC UPDATE -----" << endl;
-        //sleep for 100 milliseconds
+        // sleep for 100 milliseconds
         this_thread::sleep_for(chrono::milliseconds(100));
         if (opcode == 0x67)
         { // JALR
@@ -561,7 +563,11 @@ int main()
             global_pc = IAG(0, stoi(info[2]));
         }
 
-        cout << "\n===== Cycle End, New PC: 0x" << hex << global_pc << dec << " =====" << endl << endl;
+        cout << "\n===== Cycle End, New PC: 0x" << hex << global_pc << dec << " =====" << endl
+             << endl;
+        clock++;
+        cout << "Clock Cycles: " << clock << endl;
+        cout << "============================" << endl;
     }
 
     return 0;
