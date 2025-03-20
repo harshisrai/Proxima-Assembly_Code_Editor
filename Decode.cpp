@@ -8,6 +8,7 @@
 #include <chrono>
 using namespace std;
 
+//defining global structures that will be used throughout the process
 int global_pc = 0x0;
 uint32_t IR = 0x0;
 uint32_t MDR = 0x0;
@@ -15,6 +16,7 @@ uint32_t MAR = 0x0;
 uint32_t RM = 0x0;
 uint32_t RZ = 0x0;
 uint32_t RY = 0x0;
+vector<int> RegFile(32, 0);
 vector<pair<int, uint32_t>> InstructionPCPairs;
 unordered_map<uint32_t, uint32_t> MainMemory;
 
@@ -25,9 +27,8 @@ const string regNums[32] = {
     "16", "17", "18", "19", "20", "21", "22", "23",
     "24", "25", "26", "27", "28", "29", "30", "31"};
 
-vector<int> RegFile(32, 0);
 
-// 🔹 R-type instructions (opcode + funct3 + funct7 → instruction)
+// 🔹Set of R-type instructions (opcode + funct3 + funct7 → instruction)
 unordered_map<string, string> rTypeInstructions = {
     {"01100110000000000", "ADD"},
     {"01100110000100000", "SUB"},
@@ -42,7 +43,7 @@ unordered_map<string, string> rTypeInstructions = {
     {"01100111000000001", "DIV"},
     {"01100111100000001", "REM"}};
 
-// 🔹 I-type instructions (opcode + funct3 → instruction)
+// 🔹Set of I-type instructions (opcode + funct3 → instruction)
 unordered_map<string, string> iTypeInstructions = {
     {"0010011000", "ADDI"},
     {"0010011010", "SLTI"},
@@ -78,6 +79,7 @@ unordered_map<string, string> ujTypeInstructions = {
     {"1101111", "JAL"} // Jump and Link
 };
 
+//Step 5 of the process , reduced to a function , reg x0 will always be 0
 void WriteBack(int val, int rd)
 {
     if (rd != 0)
@@ -87,6 +89,7 @@ void WriteBack(int val, int rd)
     }
 }
 
+//PC generator , the if /else-if cases illustrate the functioning of the MUXes in the flow
 // Convention : Anything to do with PC , just call IAG with proper parameters , nothing else
 int IAG(int ra, int imm)
 {
@@ -107,6 +110,10 @@ int IAG(int ra, int imm)
     }
 }
 
+//PMI does (a)perform store , (b)perform load , (c)fetch the instruction of pc calculated from IAG
+//(a) is done by writiing val in MDR to address in MAR
+//(b) is done by writing val in MDR to register ra
+//(c) is done by updating IR
 // Convention : If action==write , then load , if action==read then store, if action==NULL then fetch instruction
 void PMI(int EA, int pc, int data, int ra, string action = "")
 {
@@ -127,6 +134,7 @@ void PMI(int EA, int pc, int data, int ra, string action = "")
     }
 }
 
+//depending on operation
 uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
 {
     if (OP == "ADD" || OP == "ADDI" || OP == "LB" || OP == "LD" || OP == "LH" || OP == "LW" || OP == "JALR" || OP == "JAL" || OP == "SB" || OP == "SH" || OP == "SD" || OP == "SW")
@@ -181,7 +189,7 @@ uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
     }
 }
 
-// Function to decode R-type instructions
+//Decoding breakds down the fields of the instructions and reads source regs
 vector<string> decodeRType(uint32_t instruction)
 {
     cout << "Decoding instruction " << "0x" << hex << instruction << endl;
@@ -323,6 +331,7 @@ vector<string> decodeUJType(uint32_t instruction)
     return {"Unknown"};
 }
 
+//performing execution stage , respective to the op , updating RZ too
 int Execute(string Type, string op, string rd, string rs1, string rs2, string imm)
 {
     if (Type == "R")
@@ -512,10 +521,12 @@ int main()
         if (opcode == 0x33)
         { // R-type instruction (e.g., ADD, SUB, etc.)
             alu_output = Execute("R", info[0], info[1], info[2], info[3], "");
+            RZ=alu_output;
         }
         else if (opcode == 0x13 || opcode == 0x03 || opcode == 0x67)
         { // I-type instruction (e.g., ADDI, LW, JALR, etc.)
             alu_output = Execute("I", info[0], info[1], info[2], "", info[3]);
+            RZ=alu_output;
         }
         else if (opcode == 0x23)
         { // S-type instruction (store operations)
@@ -527,14 +538,17 @@ int main()
         else if (opcode == 0x63)
         { // SB-type instruction (conditional branch)
             alu_output = Execute("SB", info[0], "", info[1], info[2], info[3]);
+            RZ=alu_output;
         }
         else if (opcode == 0x17 || opcode == 0x37)
         { // U-type instruction (AUIPC, LUI)
             alu_output = Execute("U", info[0], info[1], "", "", info[2]);
+            RZ=alu_output;
         }
         else if (opcode == 0x6F)
         {                   // UJ-type instruction (JAL)
             alu_output = 0; // For JAL, write-back is handled separately.
+            RZ=alu_output;
         }
         else
         {
