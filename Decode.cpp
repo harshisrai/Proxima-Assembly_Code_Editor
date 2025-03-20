@@ -10,9 +10,13 @@ using namespace std;
 
 int global_pc = 0x0;
 uint32_t IR = 0x0;
+uint32_t MDR = 0x0;
+uint32_t MAR = 0x0;
+uint32_t RM = 0x0;
+uint32_t RZ = 0x0;
+uint32_t RY = 0x0;
 vector<pair<int, uint32_t>> InstructionPCPairs;
 unordered_map<uint32_t, uint32_t> MainMemory;
-int32_t rz;
 
 // Register names (x0 to x31)
 const string regNums[32] = {
@@ -76,8 +80,11 @@ unordered_map<string, string> ujTypeInstructions = {
 
 void WriteBack(int val, int rd)
 {
-    cout << "Writing value " << val << " to register x" << dec << rd << endl;
-    RegFile[rd] = val;
+    if (rd != 0)
+    {
+        cout << "Writing value " << val << " to register x" << dec << rd << endl;
+        RegFile[rd] = val;
+    }
 }
 
 // Convention : Anything to do with PC , just call IAG with proper parameters , nothing else
@@ -105,13 +112,13 @@ void PMI(int EA, int pc, int data, int ra, string action = "")
 {
     if (action == "write")
     {
-        cout << "PMI Call; Writing " << data << " to memory address " << EA << endl;
-        MainMemory[EA] = data;
+        cout << "PMI Call; Writing " << data << "from MDR to memory address " << EA << "which was stored in MAR" << endl;
+        MainMemory[MAR] = MDR;
     }
     else if (action == "read")
     {
-        cout << "PMI Call; Reading from memory address " << EA << "and writiing to register x" << ra << endl;
-        WriteBack(MainMemory[EA], ra);
+        cout << "PMI Call; Reading from MDR and writiing to register x" << ra << endl;
+        WriteBack(MDR, ra);
     }
     else
     {
@@ -119,6 +126,7 @@ void PMI(int EA, int pc, int data, int ra, string action = "")
         IR = InstructionPCPairs[(pc / 4)].second;
     }
 }
+
 uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
 {
     if (OP == "ADD" || OP == "ADDI" || OP == "LB" || OP == "LD" || OP == "LH" || OP == "LW" || OP == "JALR" || OP == "JAL" || OP == "SB" || OP == "SH" || OP == "SD" || OP == "SW")
@@ -134,29 +142,29 @@ uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
     else if (OP == "BLT")
         return val1 < val2;
     else if (OP == "AND" || OP == "ANDI")
-        return rz = val1 & val2;
+        return RZ = val1 & val2;
     else if (OP == "OR" || OP == "ORI")
-        return rz = val1 | val2;
+        return RZ = val1 | val2;
     else if (OP == "MUL")
-        return rz = val1 * val2;
+        return RZ = val1 * val2;
     else if (OP == "DIV")
-        return rz = val1 / val2;
+        return RZ = val1 / val2;
     else if (OP == "REM")
-        return rz = val1 % val2;
+        return RZ = val1 % val2;
     else if (OP == "XOR")
-        return rz = val1 ^ val2;
+        return RZ = val1 ^ val2;
     else if (OP == "SUB")
-        return rz = val1 - val2;
+        return RZ = val1 - val2;
     else if (OP == "SLL")
-        return rz = val1 << val2;
+        return RZ = val1 << val2;
     else if (OP == "SLT")
-        return rz = val1 < val2;
+        return RZ = val1 < val2;
     else if (OP == "SRL")
-        return rz = val1 >> val2;
+        return RZ = val1 >> val2;
     else if (OP == "SRA")
     {
-        rz = (int32_t)(val1 >> val2);
-        return rz;
+        RZ = (int32_t)(val1 >> val2);
+        return RZ;
     }
     else if (OP == "LUI")
     {
@@ -176,14 +184,15 @@ uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
 // Function to decode R-type instructions
 vector<string> decodeRType(uint32_t instruction)
 {
-    cout << "Decoding instruction " << hex << instruction << endl;
+    cout << "Decoding instruction " << "0x" << hex << instruction << endl;
     uint32_t opcode = instruction & 0x7F;         // bits [6:0]
     uint32_t rd = (instruction >> 7) & 0x1F;      // bits [11:7]
     uint32_t funct3 = (instruction >> 12) & 0x7;  // bits [14:12]
     uint32_t rs1 = (instruction >> 15) & 0x1F;    // bits [19:15]
     uint32_t rs2 = (instruction >> 20) & 0x1F;    // bits [24:20]
     uint32_t funct7 = (instruction >> 25) & 0x7F; // bits [31:25]
-
+    cout << "Value " << RegFile[rs1] << " has been read from register x" << dec << rs1 << endl;
+    cout << "Value " << RegFile[rs2] << " has been read from register x" << dec << rs2 << endl;
     string key = bitset<7>(opcode).to_string() +
                  bitset<3>(funct3).to_string() +
                  bitset<7>(funct7).to_string();
@@ -197,13 +206,14 @@ vector<string> decodeRType(uint32_t instruction)
 
 vector<string> decodeIType(uint32_t instruction)
 {
-    cout << "Decoding instruction " << hex << instruction << endl;
+    cout << "Decoding instruction " << "0x" << hex << instruction << endl;
     uint32_t opcode = instruction & 0x7F;
     uint32_t rd = (instruction >> 7) & 0x1F;
     uint32_t funct3 = (instruction >> 12) & 0x7;
     uint32_t rs1 = (instruction >> 15) & 0x1F;
     int32_t imm = (int32_t)(instruction >> 20); // bits [31:20] (signed immediate)
-
+    cout << "Value " << RegFile[rs1] << " has been read from register x" << dec << rs1 << endl;
+    cout << "Immediate value 0x" << hex << imm << " has been read" << endl;
     if (imm & 0x800)
         imm |= 0xFFFFF000; // Sign-extend 12-bit immediate
 
@@ -218,15 +228,20 @@ vector<string> decodeIType(uint32_t instruction)
 
 vector<string> decodeSType(uint32_t instruction)
 {
-    cout << "Decoding instruction " << hex << instruction << endl;
+    cout << "Decoding instruction " << "0x" << hex << instruction << endl;
     uint32_t opcode = instruction & 0x7F;
     uint32_t imm4_0 = (instruction >> 7) & 0x1F;
     uint32_t funct3 = (instruction >> 12) & 0x7;
     uint32_t rs1 = (instruction >> 15) & 0x1F;
     uint32_t rs2 = (instruction >> 20) & 0x1F;
     uint32_t imm11_5 = (instruction >> 25) & 0x7F;
-
+    cout << "Value " << RegFile[rs1] << " has been read from register x" << dec << rs1 << endl;
+    cout << "Value " << RegFile[rs2] << " has been read from register x" << dec << rs2 << endl;
+    // For store instructions (S-type: SW, SB, etc.):
+    RM = RegFile[rs2]; // info[1] = rs2 in your decodeS output
+    cout << "RM has been fed with value from register x" << dec << rs2 << endl;
     int32_t imm = (imm11_5 << 5) | imm4_0;
+    cout << "Immediate value 0x" << hex << imm << " has been read" << endl;
     if (imm & (1 << 11))
         imm |= 0xFFFFF000; // Sign extension
 
@@ -242,7 +257,7 @@ vector<string> decodeSType(uint32_t instruction)
 
 vector<string> decodeSBType(uint32_t instruction)
 {
-    cout << "Decoding instruction " << hex << instruction << endl;
+    cout << "Decoding instruction " << "0x" << hex << instruction << endl;
     uint32_t opcode = instruction & 0x7F;
     uint32_t imm11 = (instruction >> 7) & 0x1;
     uint32_t imm4_1 = (instruction >> 8) & 0xF;
@@ -253,6 +268,9 @@ vector<string> decodeSBType(uint32_t instruction)
     uint32_t imm12 = (instruction >> 31) & 0x1;
 
     int32_t imm = (imm12 << 12) | (imm11 << 11) | (imm10_5 << 5) | (imm4_1 << 1);
+    cout << "Value " << RegFile[rs1] << " has been read from register x" << dec << rs1 << endl;
+    cout << "Value " << RegFile[rs2] << " has been read from register x" << dec << rs2 << endl;
+    cout << "Immediate value 0x" << hex << imm << " has been read" << endl;
     if (imm & (1 << 12))
         imm |= 0xFFFFE000; // Sign extension
 
@@ -267,11 +285,11 @@ vector<string> decodeSBType(uint32_t instruction)
 
 vector<string> decodeUType(uint32_t instruction)
 {
-    cout << "Decoding instruction " << hex << instruction << endl;
+    cout << "Decoding instruction " << "0x" << hex << instruction << endl;
     uint32_t opcode = instruction & 0x7F;
     uint32_t rd = (instruction >> 7) & 0x1F;
     uint32_t imm = (instruction >> 12);
-
+    cout << "Immediate value 0x" << hex << imm << " has been read" << endl;
     string key = bitset<7>(opcode).to_string();
 
     if (uTypeInstructions.find(key) != uTypeInstructions.end())
@@ -283,7 +301,7 @@ vector<string> decodeUType(uint32_t instruction)
 
 vector<string> decodeUJType(uint32_t instruction)
 {
-    cout << "Decoding instruction " << hex << instruction << endl;
+    cout << "Decoding instruction " << "0x" << hex << instruction << endl;
     uint32_t opcode = instruction & 0x7F;
     uint32_t rd = (instruction >> 7) & 0x1F;
     uint32_t imm19_12 = (instruction >> 12) & 0xFF;
@@ -292,6 +310,7 @@ vector<string> decodeUJType(uint32_t instruction)
     uint32_t imm20 = (instruction >> 31) & 0x1;
 
     int32_t imm = (imm20 << 20) | (imm19_12 << 12) | (imm11 << 11) | (imm10_1 << 1);
+    cout << "Immediate value 0x" << hex << imm << " has been read" << endl;
     if (imm & (1 << 20))
         imm |= 0xFFE00000; // Sign extension
 
@@ -310,13 +329,23 @@ int Execute(string Type, string op, string rd, string rs1, string rs2, string im
     {
         cout << " ALU Performing " << op << " operation on registers " << "x" << rs1 << " & " << "x" << rs2 << endl;
         uint32_t val = ALU(RegFile[stoi(rs1)], RegFile[stoi(rs2)], op);
-
+        RZ = val;
+        cout << "ALU output has been fed to RZ" << endl;
         return val;
     }
     else if (Type == "I")
-    {
-        cout << " ALU Performing " << op << " operation on register " << "x" << rs1 << " with immediate " << imm << endl;
+    { // if op is not lb lh lw or ld , then do the below cout
+        if (op != "LB" && op != "LH" && op != "LW" && op != "LD")
+        {
+            cout << " ALU Performing " << op << " operation on register " << "x" << rs1 << " with immediate " << imm << endl;
+        }
+        else
+        {
+            cout << "ALU calculating effective address for " << op << " operation using register x" << rs1 << " and immediate " << imm << endl;
+        }
         uint32_t val = ALU(RegFile[stoi(rs1)], stoi(imm), op);
+        RZ = val;
+        cout << "ALU output has been fed to RZ" << endl;
 
         return val;
     }
@@ -333,8 +362,11 @@ int Execute(string Type, string op, string rd, string rs1, string rs2, string im
     }
     else if (Type == "U")
     {
-        cout << "ALU performing " << op << "on immediate " << imm << endl;
-        return ALU(stoi(imm), global_pc, op);
+        cout << "ALU performing " << op << " on immediate " << imm << endl;
+        uint32_t val = ALU(stoi(imm), 0, op);
+        RZ = val;
+        cout << "ALU output has been fed to RZ" << endl;
+        return val;
     }
     else
     {
@@ -387,7 +419,16 @@ int main()
             // Read the address and machine code from each line.
             if (!(iss >> address >> machineCodeStr))
                 continue;
-
+            // also read the instruction opname
+            string opname;
+            if (!(iss >> opname))
+                continue;
+            if (opname == "ld" || opname == "sd")
+            {
+                // throw stderror
+                cerr << "Error: Unsupported instruction " << opname << " with respect to RV32" << endl;
+                return 1;
+            }
             // Remove trailing ':' from address if present.
             if (!address.empty() && address.back() == ':')
                 address.pop_back();
@@ -421,7 +462,7 @@ int main()
         }
     }
     inputFile.close();
-    int clock=0;
+    int clock = 0;
     // Main simulation loop: continues as long as there are instructions to execute.
     // print instructionpcpairs
     // for (auto &pair : InstructionPCPairs)
@@ -480,6 +521,7 @@ int main()
         { // S-type instruction (store operations)
             // For store, compute effective address.
             alu_output = ALU(RegFile[stoi(info[2])], stoi(info[3]), info[0]);
+            RZ = alu_output;
             cout << "[EXECUTE] Effective Address: " << alu_output << endl;
         }
         else if (opcode == 0x63)
@@ -503,13 +545,22 @@ int main()
         cout << "\n----- MEMORY STAGE -----" << endl;
         // sleep for 100 milliseconds
         this_thread::sleep_for(chrono::milliseconds(100));
+        MAR = RZ;
+        cout << "MAR has been fed with effective address from RZ" << endl;
         if (opcode == 0x23)
         { // S-type: store operation has already computed the effective address.
-            PMI(alu_output, current_pc, RegFile[stoi(info[1])], 0, "write");
+            MDR = RM;
+            PMI(MAR, current_pc, RM, 0, "write");
+            // (Assuming PMI would update the memory in a real implementation)
+            cout << "Value " << RM << " from RM has been written to memory address 0x" << hex << alu_output << endl;
         }
-        else if (opcode == 0x13 && info[0] == "LW") // Example for load operations (if implemented)
+        else if (opcode == 0x03) // Example for load operations (if implemented)
         {
-            PMI(alu_output, current_pc, 0, stoi(info[1]), "read");
+            // CHANGE WITH RESPECT TO HARDIK'S CODE
+            MDR = MainMemory[MAR];
+            cout << "MDR has been fed with value" << MainMemory[MAR] << " from memory address 0x" << hex << MAR << " which was stored in MAR" << endl;
+            PMI(MAR, current_pc, 0, stoi(info[1]), "read");
+
             // (Assuming PMI would update the register in a real implementation)
         }
 
@@ -517,23 +568,47 @@ int main()
         cout << "\n----- WRITE-BACK STAGE -----" << endl;
         // sleep for 100 milliseconds
         this_thread::sleep_for(chrono::milliseconds(100));
-        if (opcode == 0x33)
-        { // R-type
-            if (info[1] != "0")
-                WriteBack(alu_output, stoi(info[1]));
+        // if (opcode == 0x33)
+        // { // R-type
+        //     if (info[1] != "0")
+        //         WriteBack(alu_output, stoi(info[1]));
+        // }
+        // else if (opcode == 0x13 || opcode == 0x03)
+        // { // I-type (non-JALR)
+        //     if (opcode != 0x67 && info[1] != "0")
+        //         WriteBack(alu_output, stoi(info[1]));
+        // }
+        // else if (opcode == 0x6F)
+        // { // UJ-type (JAL)
+        //     if (info[1] != "0")
+        //         WriteBack(global_pc + 4, stoi(info[1]));
+        // }
+        // if R type or I type , RY = RZ
+        if (opcode == 0x33 || opcode == 0x13)
+        {
+            RY = RZ;
+            cout << "As it is R type instruction, RY is updated with data from RZ" << endl;
         }
-        else if (opcode == 0x13 || opcode == 0x03)
-        { // I-type (non-JALR)
-            if (opcode != 0x67 && info[1] != "0")
-                WriteBack(alu_output, stoi(info[1]));
+        // if load , RY = MDR
+        else if (opcode == 0x03)
+        {
+            RY = MDR;
+            cout << "As it is load instruction, RY is updated with data from MDR" << endl;
         }
-        else if (opcode == 0x6F)
-        { // UJ-type (JAL)
-            if (info[1] != "0")
-                WriteBack(global_pc + 4, stoi(info[1]));
+        else if (opcode == 0x17 || opcode == 0x37)
+        { // U-type
+            RY = RZ;
+            cout << "As it is U-type (LUI/AUIPC), RY is updated with data from RZ" << endl;
         }
-        // (For branches and other control instructions, write-back may not be needed.)
 
+        // if jal or jalr , RY=PC+4
+        else if (opcode == 0x6F || opcode == 0x67)
+        {
+            RY = global_pc + 4;
+            cout << "As it is jal/jalr instruction, RY is updated to be PC+4" << endl;
+        }
+        // For branches and other control instructions, write-back may not be needed.)
+        WriteBack(RY, stoi(info[1]));
         // ----- PC UPDATE -----
         cout << "\n----- PC UPDATE -----" << endl;
         // sleep for 100 milliseconds
