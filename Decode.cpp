@@ -6,9 +6,14 @@
 #include <bits/stdc++.h>
 #include <thread>
 #include <chrono>
+#include <stdexcept>
+#include <algorithm>
+#include <vector>
+#include <cctype>
+#include <string>
 using namespace std;
 
-//defining global structures that will be used throughout the process
+// defining global structures that will be used throughout the process
 int global_pc = 0x0;
 uint32_t IR = 0x0;
 uint32_t MDR = 0x0;
@@ -16,7 +21,8 @@ uint32_t MAR = 0x0;
 uint32_t RM = 0x0;
 uint32_t RZ = 0x0;
 uint32_t RY = 0x0;
-vector<int> RegFile(32, 0);
+// Register file (x0 to x31) - initialized with preloaded values
+vector<int> RegFile={0,0,2147483612,268435456,0,0,0,0,0,0,1,2147483612,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 vector<pair<int, uint32_t>> InstructionPCPairs;
 unordered_map<uint32_t, uint32_t> MainMemory;
 
@@ -26,7 +32,6 @@ const string regNums[32] = {
     "8", "9", "10", "11", "12", "13", "14", "15",
     "16", "17", "18", "19", "20", "21", "22", "23",
     "24", "25", "26", "27", "28", "29", "30", "31"};
-
 
 // 🔹Set of R-type instructions (opcode + funct3 + funct7 → instruction)
 unordered_map<string, string> rTypeInstructions = {
@@ -79,7 +84,7 @@ unordered_map<string, string> ujTypeInstructions = {
     {"1101111", "JAL"} // Jump and Link
 };
 
-//Step 5 of the process , reduced to a function , reg x0 will always be 0
+// Step 5 of the process , reduced to a function , reg x0 will always be 0
 void WriteBack(int val, int rd)
 {
     if (rd != 0)
@@ -89,8 +94,65 @@ void WriteBack(int val, int rd)
     }
 }
 
-//PC generator , the if /else-if cases illustrate the functioning of the MUXes in the flow
-// Convention : Anything to do with PC , just call IAG with proper parameters , nothing else
+void MemAccess(string op, int value, int eff)
+{
+    if (op == "SB" || op == "SH" || op == "SW")
+    {
+        int size = 0;
+        cout<<"##"<<op<<" "<<value<<" "<<eff<<endl;
+        if (op == "SB")
+        {
+            size = 1;
+        }
+        else if (op == "SH")
+        {
+            size = 2;
+        }
+        else if (op == "SW")
+        {
+            size = 4;
+        }
+
+        for (int i = 0; i < size; i++)
+        {
+            MainMemory[eff + i] = static_cast<uint8_t>(value & 0xFF); // Extract lowest 8 bits
+            value >>= 8;                                              // Shift right to get next byte
+        }
+    }
+    else if (op == "LB" || op == "LH" || op == "LW")
+    {
+        int size = 0; // Number of bytes to load
+        int32_t value = 0;
+
+        if (op == "LB")
+            size = 1;
+        else if (op == "LH")
+            size = 2;
+        else if (op == "LW")
+            size = 4;
+
+        // Reconstruct the value in little-endian order
+        for (int i = size - 1; i >= 0; i--)
+        {
+            value = (value << 8) | MainMemory[eff + i];
+        }
+
+        // Sign-extension for lb and lh
+        if (op == "LB" && (value & 0x80))
+        {
+            value |= 0xFFFFFF00; // Extend sign for 8-bit value
+        }
+        else if (op == "LH" && (value & 0x8000))
+        {
+            value |= 0xFFFF0000; // Extend sign for 16-bit value
+        }
+        cout << "MDR is updated with value " << value << " from address 0x" << hex << eff << endl;
+        MDR = value;
+    }
+}
+
+// PC generator , the if /else-if cases illustrate the functioning of the MUXes in the flow
+//  Convention : Anything to do with PC , just call IAG with proper parameters , nothing else
 int IAG(int ra, int imm)
 {
     if (ra == 0 && imm == 0)
@@ -110,31 +172,31 @@ int IAG(int ra, int imm)
     }
 }
 
-//PMI does (a)perform store , (b)perform load , (c)fetch the instruction of pc calculated from IAG
+// PMI does (a)perform store , (b)perform load , (c)fetch the instruction of pc calculated from IAG
 //(a) is done by writiing val in MDR to address in MAR
 //(b) is done by writing val in MDR to register ra
 //(c) is done by updating IR
-// Convention : If action==write , then load , if action==read then store, if action==NULL then fetch instruction
+//  Convention : If action==write , then load , if action==read then store, if action==NULL then fetch instruction
 void PMI(int EA, int pc, int data, int ra, string action = "")
 {
-    if (action == "write")
+    if (action == "LB" || action == "LH" || action == "LW")
+    {
+        cout << "PMI Call; Writing " << data << "from MDR to RY" << ra << endl;
+        MemAccess(action, data, EA);
+    }
+    else if (action == "SB" || action == "SH" || action == "SW")
     {
         cout << "PMI Call; Writing " << data << "from MDR to memory address " << EA << "which was stored in MAR" << endl;
-        MainMemory[MAR] = MDR;
-    }
-    else if (action == "read")
-    {
-        cout << "PMI Call; Reading from MDR and writiing to register x" << ra << endl;
-        WriteBack(MDR, ra);
+        MemAccess(action, data, EA);
     }
     else
     {
-        cout << "PMI Call; Fetching instruction from PC " << pc << endl;
+        cout << "PMI Call; Fetching instruction from PC " << pc << " and loading into IR" << endl;
         IR = InstructionPCPairs[(pc / 4)].second;
     }
 }
 
-//depending on operation
+// depending on operation
 uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
 {
     if (OP == "ADD" || OP == "ADDI" || OP == "LB" || OP == "LD" || OP == "LH" || OP == "LW" || OP == "JALR" || OP == "JAL" || OP == "SB" || OP == "SH" || OP == "SD" || OP == "SW")
@@ -156,6 +218,12 @@ uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
     else if (OP == "MUL")
         return RZ = val1 * val2;
     else if (OP == "DIV")
+        if(val2==0)
+        {
+            throw runtime_error("Division by zero error");
+            return 0;
+        }
+        else
         return RZ = val1 / val2;
     else if (OP == "REM")
         return RZ = val1 % val2;
@@ -189,7 +257,7 @@ uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
     }
 }
 
-//Decoding breakds down the fields of the instructions and reads source regs
+// Decoding breakds down the fields of the instructions and reads source regs
 vector<string> decodeRType(uint32_t instruction)
 {
     cout << "Decoding instruction " << "0x" << hex << instruction << endl;
@@ -331,7 +399,7 @@ vector<string> decodeUJType(uint32_t instruction)
     return {"Unknown"};
 }
 
-//performing execution stage , respective to the op , updating RZ too
+// performing execution stage , respective to the op , updating RZ too
 int Execute(string Type, string op, string rd, string rs1, string rs2, string imm)
 {
     if (Type == "R")
@@ -383,6 +451,15 @@ int Execute(string Type, string op, string rd, string rs1, string rs2, string im
         return 0;
     }
 }
+
+std::string to_uppercase(const std::string& input) {
+    std::string result = input;
+    std::transform(result.begin(), result.end(), result.begin(),
+                   [](unsigned char c) { return std::toupper(c); });
+    return result;
+}
+
+
 
 int main()
 {
@@ -521,12 +598,12 @@ int main()
         if (opcode == 0x33)
         { // R-type instruction (e.g., ADD, SUB, etc.)
             alu_output = Execute("R", info[0], info[1], info[2], info[3], "");
-            RZ=alu_output;
+            RZ = alu_output;
         }
         else if (opcode == 0x13 || opcode == 0x03 || opcode == 0x67)
         { // I-type instruction (e.g., ADDI, LW, JALR, etc.)
             alu_output = Execute("I", info[0], info[1], info[2], "", info[3]);
-            RZ=alu_output;
+            RZ = alu_output;
         }
         else if (opcode == 0x23)
         { // S-type instruction (store operations)
@@ -538,17 +615,17 @@ int main()
         else if (opcode == 0x63)
         { // SB-type instruction (conditional branch)
             alu_output = Execute("SB", info[0], "", info[1], info[2], info[3]);
-            RZ=alu_output;
+            RZ = alu_output;
         }
         else if (opcode == 0x17 || opcode == 0x37)
         { // U-type instruction (AUIPC, LUI)
             alu_output = Execute("U", info[0], info[1], "", "", info[2]);
-            RZ=alu_output;
+            RZ = alu_output;
         }
         else if (opcode == 0x6F)
         {                   // UJ-type instruction (JAL)
             alu_output = 0; // For JAL, write-back is handled separately.
-            RZ=alu_output;
+            RZ = alu_output;
         }
         else
         {
@@ -564,7 +641,7 @@ int main()
         if (opcode == 0x23)
         { // S-type: store operation has already computed the effective address.
             MDR = RM;
-            PMI(MAR, current_pc, RM, 0, "write");
+            PMI(MAR, current_pc, RM, 0,to_uppercase(info[0]));
             // (Assuming PMI would update the memory in a real implementation)
             cout << "Value " << RM << " from RM has been written to memory address 0x" << hex << alu_output << endl;
         }
@@ -573,7 +650,7 @@ int main()
             // CHANGE WITH RESPECT TO HARDIK'S CODE
             MDR = MainMemory[MAR];
             cout << "MDR has been fed with value" << MainMemory[MAR] << " from memory address 0x" << hex << MAR << " which was stored in MAR" << endl;
-            PMI(MAR, current_pc, 0, stoi(info[1]), "read");
+            PMI(MAR, current_pc, 0, stoi(info[1]),to_uppercase(info[0]));
 
             // (Assuming PMI would update the register in a real implementation)
         }
@@ -657,6 +734,18 @@ int main()
         clock++;
         cout << "Clock Cycles: " << clock << endl;
         cout << "============================" << endl;
+    }
+    // print memory
+    cout << "Memory Contents:" << endl;
+    for (auto &pair : MainMemory)
+    {
+        cout << "0x" << hex << pair.first << ": 0x" << hex << pair.second << dec << endl;
+    }
+    // print register file
+    cout << "Register File Contents:" << endl;
+    for (int i = 0; i < 32; i++)
+    {
+        cout << "x" << i << ": " << RegFile[i] << endl;
     }
 
     return 0;
