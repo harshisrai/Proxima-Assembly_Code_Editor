@@ -24,9 +24,9 @@ uint32_t RM = 0x0;
 uint32_t RZ = 0x0;
 uint32_t RY = 0x0;
 // Register file (x0 to x31) - initialized with preloaded values
-vector<int> RegFile={0,0,2147483612,268435456,0,0,0,0,0,0,1,2147483612,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+vector<int> RegFile = {0, 0, 2147483612, 268435456, 0, 0, 0, 0, 0, 0, 1, 2147483612, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 vector<pair<int, uint32_t>> InstructionPCPairs;
-unordered_map<uint32_t, uint32_t> MainMemory;//uint8_t cause byte
+unordered_map<uint32_t, uint32_t> MainMemory; // uint8_t cause byte
 
 // Register names (x0 to x31)
 const string regNums[32] = {
@@ -91,7 +91,7 @@ void WriteBack(int val, int rd)
 {
     if (rd != 0)
     {
-        cout << "Writing value 0x" <<hex<< val << " to register x" << dec << rd << endl;
+        cout << "Writing value 0x" << hex << val << " to register x" << dec << rd << endl;
         RegFile[rd] = val;
     }
 }
@@ -119,18 +119,20 @@ void MemAccess(string op, int value, int eff)
         {
             MainMemory[eff + i] = static_cast<uint8_t>(value & 0xFF); // Extract lowest 8 bits
             value >>= 8;                                              // Shift right to get next byte
-            st.insert(eff+i-(eff+i)%4);
+            st.insert(eff + i - (eff + i) % 4);
         }
-        cout<<"STARTMEMORY"<<endl;
-        for(auto it:st){
-            cout<<"0x"<<it<<": ";
-            for(int i =0;i<4;i++){
-                cout << std::setw(2) << std::setfill('0') 
-                << static_cast<int>(MainMemory[it +3- i]) << " ";
+        cout << "STARTMEMORY" << endl;
+        for (auto it : st)
+        {
+            cout << "0x" << it << ": ";
+            for (int i = 0; i < 4; i++)
+            {
+                cout << std::setw(2) << std::setfill('0')
+                     << static_cast<int>(MainMemory[it + 3 - i]) << " ";
             }
-            cout<<endl;
+            cout << endl;
         }
-        cout<<"ENDMEMORY"<<endl;
+        cout << "ENDMEMORY" << endl;
     }
     else if (op == "LB" || op == "LH" || op == "LW")
     {
@@ -186,7 +188,7 @@ void MemAccessforDataSeg(string op, int value, int eff)
         {
             MainMemory[eff + i] = static_cast<uint8_t>(value & 0xFF); // Extract lowest 8 bits
             value >>= 8;                                              // Shift right to get next byte
-            st.insert(eff+i-(eff+i)%4);
+            st.insert(eff + i - (eff + i) % 4);
         }
     }
 }
@@ -221,17 +223,17 @@ void PMI(int EA, int pc, int data, int ra, string action = "")
 {
     if (action == "LB" || action == "LH" || action == "LW")
     {
-        cout << "PMI Call; Writing value from EA 0x" <<hex<< EA <<dec<< " from MDR to RY "<< endl;
+        cout << "PMI Call; Writing value from EA 0x" << hex << EA << dec << " from MDR to RY " << endl;
         MemAccess(action, data, EA);
     }
     else if (action == "SB" || action == "SH" || action == "SW")
     {
-        cout << "PMI Call; Writing 0x" <<hex<< data <<dec<< " from MDR to memory address 0x" <<hex<< EA <<dec<< " which was stored in MAR" << endl;
+        cout << "PMI Call; Writing 0x" << hex << data << dec << " from MDR to memory address 0x" << hex << EA << dec << " which was stored in MAR" << endl;
         MemAccess(action, data, EA);
     }
     else
     {
-        cout << "PMI Call; Fetching instruction from PC 0x" <<hex<< pc <<dec<< " and loading into IR" << endl;
+        cout << "PMI Call; Fetching instruction from PC 0x" << hex << pc << dec << " and loading into IR" << endl;
         IR = InstructionPCPairs[(pc / 4)].second;
     }
 }
@@ -243,9 +245,11 @@ uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
     {
         return val1 + val2;
     }
-    else if (OP == "BEQ"){
-        
-        return val1 == val2;}
+    else if (OP == "BEQ")
+    {
+
+        return val1 == val2;
+    }
     else if (OP == "BNE")
         return val1 != val2;
     else if (OP == "BGE")
@@ -259,13 +263,13 @@ uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
     else if (OP == "MUL")
         return RZ = val1 * val2;
     else if (OP == "DIV")
-        if(val2==0)
+        if (val2 == 0)
         {
             throw runtime_error("Division by zero error");
             return 0;
         }
         else
-        return RZ = val1 / val2;
+            return RZ = val1 / val2;
     else if (OP == "REM")
         return RZ = val1 % val2;
     else if (OP == "XOR")
@@ -493,24 +497,28 @@ int Execute(string Type, string op, string rd, string rs1, string rs2, string im
     }
 }
 
-std::string to_uppercase(const std::string& input) {
+std::string to_uppercase(const std::string &input)
+{
     std::string result = input;
     std::transform(result.begin(), result.end(), result.begin(),
-                   [](unsigned char c) { return std::toupper(c); });
+                   [](unsigned char c)
+                   { return std::toupper(c); });
     return result;
 }
 
-void dumpMemoryToMCFile(const std::unordered_map<uint32_t, uint32_t>& memory,const std::string& filename)
+void dumpMemoryToMCFile(const std::unordered_map<uint32_t, uint32_t> &memory, const std::string &filename)
 {
     // If memory is empty, just create an empty file.
-    if (memory.empty()) {
+    if (memory.empty())
+    {
         std::ofstream emptyFile(filename);
         return;
     }
 
     // Determine the unique 4-byte aligned addresses (groups) that exist in the map.
     std::unordered_set<uint32_t> groupAddresses;
-    for (const auto& kv : memory) {
+    for (const auto &kv : memory)
+    {
         uint32_t groupAddr = kv.first & ~0x3; // Align address to a 4-byte boundary.
         groupAddresses.insert(groupAddr);
     }
@@ -521,7 +529,8 @@ void dumpMemoryToMCFile(const std::unordered_map<uint32_t, uint32_t>& memory,con
 
     // Open the output file.
     std::ofstream outFile(filename);
-    if (!outFile.is_open()) {
+    if (!outFile.is_open())
+    {
         std::cerr << "Error: could not open output file " << filename << std::endl;
         return;
     }
@@ -530,25 +539,27 @@ void dumpMemoryToMCFile(const std::unordered_map<uint32_t, uint32_t>& memory,con
     outFile << "  Address   +3  +2  +1  +0" << "\n";
 
     // Iterate through each group address.
-    for (uint32_t addr : groups) {
+    for (uint32_t addr : groups)
+    {
         // Print the 4-byte aligned address.
-        outFile << "0x" 
-                << std::uppercase 
-                << std::hex 
-                << std::setw(8) 
-                << std::setfill('0') 
-                << addr 
-                << std::dec 
-                << std::nouppercase 
+        outFile << "0x"
+                << std::uppercase
+                << std::hex
+                << std::setw(8)
+                << std::setfill('0')
+                << addr
+                << std::dec
+                << std::nouppercase
                 << std::setfill(' ');
 
         // For each word, print the 4 bytes in order: +3, +2, +1, +0.
-        for (int offset = 3; offset >= 0; --offset) {
+        for (int offset = 3; offset >= 0; --offset)
+        {
             uint32_t currentAddress = addr + offset;
             auto it = memory.find(currentAddress);
             uint8_t value = (it != memory.end()) ? it->second : 0; // Default to 0 if not found
 
-            outFile << "  " 
+            outFile << "  "
                     << std::setw(2)
                     << std::uppercase
                     << std::hex
@@ -560,21 +571,24 @@ void dumpMemoryToMCFile(const std::unordered_map<uint32_t, uint32_t>& memory,con
         }
         outFile << "\n";
     }
-    cout<<"Memory Dumped to memory.mc"<<endl;
+    cout << "Memory Dumped to memory.mc" << endl;
     outFile.close();
 }
 
-void dumpRegisterToMcFile(){
+void dumpRegisterToMcFile()
+{
     std::ofstream outFile("Registers.mc");
-    
-    if (!outFile) { // Check if the file opened successfully
+
+    if (!outFile)
+    { // Check if the file opened successfully
         std::cerr << "Error: Could not open file for writing.\n";
-        return ;
+        return;
     }
 
     // Write register values to the file
-    for (size_t i = 0; i < RegFile.size(); i++) {
-        outFile << "x" << i << ": "  << RegFile[i] << "\n";  // Writing in decimal format
+    for (size_t i = 0; i < RegFile.size(); i++)
+    {
+        outFile << "x" << i << ": " << RegFile[i] << "\n"; // Writing in decimal format
     }
 
     // Close the file
@@ -682,14 +696,14 @@ int main()
         // ----- FETCH STAGE -----
         cout << "\n----- FETCH STAGE -----" << endl;
         // sleep for 100 milliseconds
-        //this_thread::sleep_for(chrono::milliseconds(100));
+        // this_thread::sleep_for(chrono::milliseconds(100));
         PMI(0, current_pc, 0, 0); // This call fetches the instruction into IR.
         cout << "[MAIN] Fetched Instruction: 0x" << hex << IR << dec << endl;
-        
+
         // ----- DECODE STAGE -----
         cout << "\n----- DECODE STAGE -----" << endl;
         // sleep for 100 milliseconds
-        //this_thread::sleep_for(chrono::milliseconds(100));
+        // this_thread::sleep_for(chrono::milliseconds(100));
         uint32_t opcode = IR & 0x7F;
         vector<string> info;
         int alu_output = 0;
@@ -712,7 +726,7 @@ int main()
         // ----- EXECUTE STAGE -----
         cout << "\n----- EXECUTE STAGE -----" << endl;
         // sleep for 100 milliseconds
-        //this_thread::sleep_for(chrono::milliseconds(100));
+        // this_thread::sleep_for(chrono::milliseconds(100));
         if (opcode == 0x33)
         { // R-type instruction (e.g., ADD, SUB, etc.)
             alu_output = Execute("R", info[0], info[1], info[2], info[3], "");
@@ -753,14 +767,14 @@ int main()
         // ----- MEMORY STAGE -----
         cout << "\n----- MEMORY STAGE -----" << endl;
         // sleep for 100 milliseconds
-        //this_thread::sleep_for(chrono::milliseconds(100));
+        // this_thread::sleep_for(chrono::milliseconds(100));
         if (opcode == 0x23)
         { // S-type: store operation has already computed the effective address.
-            
-        MAR = RZ;
-        cout << "MAR has been fed with effective address from RZ" << endl;
+
+            MAR = RZ;
+            cout << "MAR has been fed with effective address from RZ" << endl;
             MDR = RM;
-            PMI(MAR, current_pc, RM, 0,to_uppercase(info[0]));
+            PMI(MAR, current_pc, RM, 0, to_uppercase(info[0]));
             // (Assuming PMI would update the memory in a real implementation)
             cout << "Value " << RM << " from RM has been written to memory address 0x" << hex << alu_output << endl;
         }
@@ -769,8 +783,8 @@ int main()
             MAR = RZ;
             cout << "MAR has been fed with effective address from RZ" << endl;
             MDR = MainMemory[MAR];
-            cout << "MDR has been fed with value 0x" <<hex<<(MainMemory[MAR]) <<dec<< " from memory address 0x" << hex << MAR << " which was stored in MAR" << endl;
-            PMI(MAR, current_pc, 0, stoi(info[1]),to_uppercase(info[0]));
+            cout << "MDR has been fed with value 0x" << hex << (MainMemory[MAR]) << dec << " from memory address 0x" << hex << MAR << " which was stored in MAR" << endl;
+            PMI(MAR, current_pc, 0, stoi(info[1]), to_uppercase(info[0]));
 
             // (Assuming PMI would update the register in a real implementation)
         }
@@ -778,7 +792,7 @@ int main()
         // ----- WRITE-BACK STAGE -----
         cout << "\n----- WRITE-BACK STAGE -----" << endl;
         // sleep for 100 milliseconds
-       // this_thread::sleep_for(chrono::milliseconds(100));
+        // this_thread::sleep_for(chrono::milliseconds(100));
         if (opcode == 0x33 || opcode == 0x13)
         {
             RY = RZ;
@@ -807,11 +821,11 @@ int main()
             WriteBack(RY, stoi(info[1]));
         }
         // For branches and other control instructions, write-back may not be needed.)
-        
+
         // ----- PC UPDATE -----
         cout << "\n----- PC UPDATE -----" << endl;
         // sleep for 100 milliseconds
-       // this_thread::sleep_for(chrono::milliseconds(100));
+        // this_thread::sleep_for(chrono::milliseconds(100));
         if (opcode == 0x67)
         { // JALR
             global_pc = alu_output;
@@ -819,7 +833,7 @@ int main()
         }
         else if (opcode == 0x63)
         { // Branches
-            cout<<alu_output<<endl;
+            cout << alu_output << endl;
             if (alu_output)
             {
                 global_pc = IAG(0, stoi(info[3]));
@@ -850,17 +864,18 @@ int main()
     // {
     //     cout << "0x" << hex << pair.first << ": 0x" << hex << pair.second << dec << endl;
     // }
-    //clear memory.mc before using
+    // clear memory.mc before using
     ofstream memoryFile("memory.mc", ios::trunc);
-    if (!memoryFile) {
+    if (!memoryFile)
+    {
         cerr << "Error: Unable to clear memory.mc" << endl;
         return 1;
     }
     memoryFile.close();
-    
+
     dumpMemoryToMCFile(MainMemory, "memory.mc");
-   dumpRegisterToMcFile();
-    
+    dumpRegisterToMcFile();
+
     // cout<<hex<<MainMemory[268435456]<<endl;
     return 0;
 }
