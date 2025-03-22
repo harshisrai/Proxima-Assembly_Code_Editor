@@ -188,16 +188,6 @@ void MemAccessforDataSeg(string op, int value, int eff)
             value >>= 8;                                              // Shift right to get next byte
             st.insert(eff+i-(eff+i)%4);
         }
-        cout<<"STARTMEMORY"<<endl;
-        for(auto it:st){
-            cout<<"0x"<<it<<": ";
-            for(int i =0;i<4;i++){
-                cout << std::setw(2) << std::setfill('0') 
-                << static_cast<int>(MainMemory[it + i]) << " ";
-            }
-            cout<<endl;
-        }
-        cout<<"ENDMEMORY"<<endl;
     }
 }
 
@@ -231,7 +221,7 @@ void PMI(int EA, int pc, int data, int ra, string action = "")
 {
     if (action == "LB" || action == "LH" || action == "LW")
     {
-        cout << "PMI Call; Writing 0x" <<hex<< data <<dec<< " from MDR to RY "<< endl;
+        cout << "PMI Call; Writing value from EA 0x" <<hex<< EA <<dec<< " from MDR to RY "<< endl;
         MemAccess(action, data, EA);
     }
     else if (action == "SB" || action == "SH" || action == "SW")
@@ -779,7 +769,7 @@ int main()
             MAR = RZ;
             cout << "MAR has been fed with effective address from RZ" << endl;
             MDR = MainMemory[MAR];
-            cout << "MDR has been fed with value" << MainMemory[MAR] << " from memory address 0x" << hex << MAR << " which was stored in MAR" << endl;
+            cout << "MDR has been fed with value 0x" <<hex<< MainMemory[MAR] <<dec<< " from memory address 0x" << hex << MAR << " which was stored in MAR" << endl;
             PMI(MAR, current_pc, 0, stoi(info[1]),to_uppercase(info[0]));
 
             // (Assuming PMI would update the register in a real implementation)
