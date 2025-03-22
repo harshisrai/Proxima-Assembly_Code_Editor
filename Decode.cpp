@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <vector>
+#include <iomanip>
 #include <cctype>
 #include <string>
 using namespace std;
@@ -24,7 +25,7 @@ uint32_t RY = 0x0;
 // Register file (x0 to x31) - initialized with preloaded values
 vector<int> RegFile={0,0,2147483612,268435456,0,0,0,0,0,0,1,2147483612,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 vector<pair<int, uint32_t>> InstructionPCPairs;
-unordered_map<uint32_t, uint32_t> MainMemory;
+unordered_map<uint32_t, uint8_t> MainMemory;//uint8_t cause byte
 
 // Register names (x0 to x31)
 const string regNums[32] = {
@@ -459,7 +460,69 @@ std::string to_uppercase(const std::string& input) {
     return result;
 }
 
+void dumpMemoryToMCFile(const std::unordered_map<uint32_t, uint8_t>& memory,const std::string& filename)
+{
+    // If memory is empty, just create an empty file.
+    if (memory.empty()) {
+        std::ofstream emptyFile(filename);
+        return;
+    }
 
+    // Determine the unique 4-byte aligned addresses (groups) that exist in the map.
+    std::unordered_set<uint32_t> groupAddresses;
+    for (const auto& kv : memory) {
+        uint32_t groupAddr = kv.first & ~0x3; // Align address to a 4-byte boundary.
+        groupAddresses.insert(groupAddr);
+    }
+
+    // Copy to a vector and sort in descending order.
+    std::vector<uint32_t> groups(groupAddresses.begin(), groupAddresses.end());
+    std::sort(groups.begin(), groups.end(), std::greater<uint32_t>());
+
+    // Open the output file.
+    std::ofstream outFile(filename);
+    if (!outFile.is_open()) {
+        std::cerr << "Error: could not open output file " << filename << std::endl;
+        return;
+    }
+
+    // Print a header.
+    outFile << "  Address   +3  +2  +1  +0" << "\n";
+
+    // Iterate through each group address.
+    for (uint32_t addr : groups) {
+        // Print the 4-byte aligned address.
+        outFile << "0x" 
+                << std::uppercase 
+                << std::hex 
+                << std::setw(8) 
+                << std::setfill('0') 
+                << addr 
+                << std::dec 
+                << std::nouppercase 
+                << std::setfill(' ');
+
+        // For each word, print the 4 bytes in order: +3, +2, +1, +0.
+        for (int offset = 3; offset >= 0; --offset) {
+            uint32_t currentAddress = addr + offset;
+            auto it = memory.find(currentAddress);
+            uint8_t value = (it != memory.end()) ? it->second : 0; // Default to 0 if not found
+
+            outFile << "  " 
+                    << std::setw(2)
+                    << std::uppercase
+                    << std::hex
+                    << std::setfill('0')
+                    << static_cast<int>(value)
+                    << std::dec
+                    << std::nouppercase
+                    << std::setfill(' ');
+        }
+        outFile << "\n";
+    }
+
+    outFile.close();
+}
 
 int main()
 {
@@ -549,12 +612,7 @@ int main()
     }
     inputFile.close();
     int clock = 0;
-    // Main simulation loop: continues as long as there are instructions to execute.
-    // print instructionpcpairs
-    // for (auto &pair : InstructionPCPairs)
-    // {
-    //     cout << "PC:" <<  pair.first << " Instruction" << pair.second << dec << endl;
-    // }
+
     while (global_pc / 4 < InstructionPCPairs.size())
     {
         cout << "============================" << endl;
@@ -659,22 +717,6 @@ int main()
         cout << "\n----- WRITE-BACK STAGE -----" << endl;
         // sleep for 100 milliseconds
         this_thread::sleep_for(chrono::milliseconds(100));
-        // if (opcode == 0x33)
-        // { // R-type
-        //     if (info[1] != "0")
-        //         WriteBack(alu_output, stoi(info[1]));
-        // }
-        // else if (opcode == 0x13 || opcode == 0x03)
-        // { // I-type (non-JALR)
-        //     if (opcode != 0x67 && info[1] != "0")
-        //         WriteBack(alu_output, stoi(info[1]));
-        // }
-        // else if (opcode == 0x6F)
-        // { // UJ-type (JAL)
-        //     if (info[1] != "0")
-        //         WriteBack(global_pc + 4, stoi(info[1]));
-        // }
-        // if R type or I type , RY = RZ
         if (opcode == 0x33 || opcode == 0x13)
         {
             RY = RZ;
@@ -736,17 +778,26 @@ int main()
         cout << "============================" << endl;
     }
     // print memory
-    cout << "Memory Contents:" << endl;
-    for (auto &pair : MainMemory)
-    {
-        cout << "0x" << hex << pair.first << ": 0x" << hex << pair.second << dec << endl;
+    // cout << "Memory Contents:" << endl;
+    // for (auto &pair : MainMemory)
+    // {
+    //     cout << "0x" << hex << pair.first << ": 0x" << hex << pair.second << dec << endl;
+    // }
+    //clear memory.mc before using
+    ofstream memoryFile("memory.mc", ios::trunc);
+    if (!memoryFile) {
+        cerr << "Error: Unable to clear memory.mc" << endl;
+        return 1;
     }
+    memoryFile.close();
+    
+    dumpMemoryToMCFile(MainMemory, "memory.mc");
     // print register file
-    cout << "Register File Contents:" << endl;
-    for (int i = 0; i < 32; i++)
-    {
-        cout << "x" << i << ": " << RegFile[i] << endl;
-    }
+    // cout << "Register File Contents:" << endl;
+    // for (int i = 0; i < 32; i++)
+    // {
+    //     cout << "x" << i << ": " << RegFile[i] << endl;
+    // }
 
     return 0;
 }
