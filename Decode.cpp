@@ -26,7 +26,7 @@ uint32_t RY = 0x0;
 // Register file (x0 to x31) - initialized with preloaded values
 vector<int> RegFile={0,0,2147483612,268435456,0,0,0,0,0,0,1,2147483612,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 vector<pair<int, uint32_t>> InstructionPCPairs;
-unordered_map<uint32_t, uint8_t> MainMemory;//uint8_t cause byte
+unordered_map<uint32_t, uint32_t> MainMemory;//uint8_t cause byte
 
 // Register names (x0 to x31)
 const string regNums[32] = {
@@ -500,7 +500,7 @@ std::string to_uppercase(const std::string& input) {
     return result;
 }
 
-void dumpMemoryToMCFile(const std::unordered_map<uint32_t, uint8_t>& memory,const std::string& filename)
+void dumpMemoryToMCFile(const std::unordered_map<uint32_t, uint32_t>& memory,const std::string& filename)
 {
     // If memory is empty, just create an empty file.
     if (memory.empty()) {
@@ -664,7 +664,7 @@ int main()
             // Convert memory address and value from hexadecimal to integers.
             uint32_t memAddr = stoi(memAddrStr, nullptr, 16);
             uint32_t memVal = stoul(memValStr, nullptr, 16);
-
+            // cout<<"Memory address 0x"<<hex<<memAddr<<" has been loaded with value 0x"<<memVal<<endl;
             // Update MainMemory with the value at this address.
             MemAccessforDataSeg("SW", memVal, memAddr);
         }
@@ -769,7 +769,7 @@ int main()
             MAR = RZ;
             cout << "MAR has been fed with effective address from RZ" << endl;
             MDR = MainMemory[MAR];
-            cout << "MDR has been fed with value 0x" <<hex<< MainMemory[MAR] <<dec<< " from memory address 0x" << hex << MAR << " which was stored in MAR" << endl;
+            cout << "MDR has been fed with value 0x" <<hex<<(MainMemory[MAR]) <<dec<< " from memory address 0x" << hex << MAR << " which was stored in MAR" << endl;
             PMI(MAR, current_pc, 0, stoi(info[1]),to_uppercase(info[0]));
 
             // (Assuming PMI would update the register in a real implementation)
@@ -861,6 +861,6 @@ int main()
     dumpMemoryToMCFile(MainMemory, "memory.mc");
    dumpRegisterToMcFile();
     
-
+    // cout<<hex<<MainMemory[268435456]<<endl;
     return 0;
 }
