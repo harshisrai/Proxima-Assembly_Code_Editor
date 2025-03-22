@@ -100,6 +100,7 @@ void MemAccess(string op, int value, int eff)
 {
     if (op == "SB" || op == "SH" || op == "SW")
     {
+        unordered_set<int> st;
         int size = 0;
         cout<<"##"<<op<<" "<<value<<" "<<eff<<endl;
         if (op == "SB")
@@ -119,7 +120,18 @@ void MemAccess(string op, int value, int eff)
         {
             MainMemory[eff + i] = static_cast<uint8_t>(value & 0xFF); // Extract lowest 8 bits
             value >>= 8;                                              // Shift right to get next byte
+            st.insert(eff+i-(eff+i)%4);
         }
+        cout<<"STARTMEMORY"<<endl;
+        for(auto it:st){
+            cout<<"0x"<<it<<": ";
+            for(int i =0;i<4;i++){
+                cout << std::setw(2) << std::setfill('0') 
+                << static_cast<int>(MainMemory[it + i]) << " ";
+            }
+            cout<<endl;
+        }
+        cout<<"ENDMEMORY"<<endl;
     }
     else if (op == "LB" || op == "LH" || op == "LW")
     {
