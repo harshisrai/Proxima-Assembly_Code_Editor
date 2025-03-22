@@ -308,8 +308,8 @@ vector<string> decodeRType(uint32_t instruction)
     uint32_t rs1 = (instruction >> 15) & 0x1F;    // bits [19:15]
     uint32_t rs2 = (instruction >> 20) & 0x1F;    // bits [24:20]
     uint32_t funct7 = (instruction >> 25) & 0x7F; // bits [31:25]
-    cout << "Value " << RegFile[rs1] << " has been read from register x" << dec << rs1 << endl;
-    cout << "Value " << RegFile[rs2] << " has been read from register x" << dec << rs2 << endl;
+    cout << "value " << RegFile[rs1] << " has been read from register x" << dec << rs1 << endl;
+    cout << "value " << RegFile[rs2] << " has been read from register x" << dec << rs2 << endl;
     string key = bitset<7>(opcode).to_string() +
                  bitset<3>(funct3).to_string() +
                  bitset<7>(funct7).to_string();
@@ -329,7 +329,7 @@ vector<string> decodeIType(uint32_t instruction)
     uint32_t funct3 = (instruction >> 12) & 0x7;
     uint32_t rs1 = (instruction >> 15) & 0x1F;
     int32_t imm = (int32_t)(instruction >> 20); // bits [31:20] (signed immediate)
-    cout << "Value " << RegFile[rs1] << " has been read from register x" << dec << rs1 << endl;
+    cout << "value " << RegFile[rs1] << " has been read from register x" << dec << rs1 << endl;
     cout << "Immediate value 0x" << hex << imm << " has been read" << endl;
     if (imm & 0x800)
         imm |= 0xFFFFF000; // Sign-extend 12-bit immediate
@@ -352,8 +352,8 @@ vector<string> decodeSType(uint32_t instruction)
     uint32_t rs1 = (instruction >> 15) & 0x1F;
     uint32_t rs2 = (instruction >> 20) & 0x1F;
     uint32_t imm11_5 = (instruction >> 25) & 0x7F;
-    cout << "Value " << RegFile[rs1] << " has been read from register x" << dec << rs1 << endl;
-    cout << "Value " << RegFile[rs2] << " has been read from register x" << dec << rs2 << endl;
+    cout << "value " << RegFile[rs1] << " has been read from register x" << dec << rs1 << endl;
+    cout << "value " << RegFile[rs2] << " has been read from register x" << dec << rs2 << endl;
     // For store instructions (S-type: SW, SB, etc.):
     RM = RegFile[rs2]; // info[1] = rs2 in your decodeS output
     cout << "RM has been fed with value from register x" << dec << rs2 << endl;
@@ -385,8 +385,8 @@ vector<string> decodeSBType(uint32_t instruction)
     uint32_t imm12 = (instruction >> 31) & 0x1;
 
     int32_t imm = (imm12 << 12) | (imm11 << 11) | (imm10_5 << 5) | (imm4_1 << 1);
-    cout << "Value " << RegFile[rs1] << " has been read from register x" << dec << rs1 << endl;
-    cout << "Value " << RegFile[rs2] << " has been read from register x" << dec << rs2 << endl;
+    cout << "value " << RegFile[rs1] << " has been read from register x" << dec << rs1 << endl;
+    cout << "value " << RegFile[rs2] << " has been read from register x" << dec << rs2 << endl;
     cout << "Immediate value 0x" << hex << imm << " has been read" << endl;
     if (imm & (1 << 12))
         imm |= 0xFFFFE000; // Sign extension
