@@ -126,7 +126,7 @@ void MemAccess(string op, int value, int eff)
             cout<<"0x"<<it<<": ";
             for(int i =0;i<4;i++){
                 cout << std::setw(2) << std::setfill('0') 
-                << static_cast<int>(MainMemory[it + i]) << " ";
+                << static_cast<int>(MainMemory[it +3- i]) << " ";
             }
             cout<<endl;
         }
