@@ -607,7 +607,7 @@ int main()
             uint32_t memVal = stoul(memValStr, nullptr, 16);
 
             // Update MainMemory with the value at this address.
-            MainMemory[memAddr] = memVal;
+            MemAccess("SW", memVal, memAddr);
         }
     }
     inputFile.close();
