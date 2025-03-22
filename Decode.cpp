@@ -91,7 +91,7 @@ void WriteBack(int val, int rd)
 {
     if (rd != 0)
     {
-        cout << "Writing value " << val << " to register x" << dec << rd << endl;
+        cout << "Writing value 0x" <<hex<< val << " to register x" << dec << rd << endl;
         RegFile[rd] = val;
     }
 }
@@ -102,7 +102,6 @@ void MemAccess(string op, int value, int eff)
     {
         unordered_set<int> st;
         int size = 0;
-        cout<<"##"<<op<<" "<<value<<" "<<eff<<endl;
         if (op == "SB")
         {
             size = 1;
@@ -195,17 +194,17 @@ void PMI(int EA, int pc, int data, int ra, string action = "")
 {
     if (action == "LB" || action == "LH" || action == "LW")
     {
-        cout << "PMI Call; Writing " << data << "from MDR to RY" << ra << endl;
+        cout << "PMI Call; Writing 0x" <<hex<< data <<dec<< " from MDR to RY "<< endl;
         MemAccess(action, data, EA);
     }
     else if (action == "SB" || action == "SH" || action == "SW")
     {
-        cout << "PMI Call; Writing " << data << "from MDR to memory address " << EA << "which was stored in MAR" << endl;
+        cout << "PMI Call; Writing 0x" <<hex<< data <<dec<< " from MDR to memory address 0x" <<hex<< EA <<dec<< " which was stored in MAR" << endl;
         MemAccess(action, data, EA);
     }
     else
     {
-        cout << "PMI Call; Fetching instruction from PC " << pc << " and loading into IR" << endl;
+        cout << "PMI Call; Fetching instruction from PC 0x" <<hex<< pc <<dec<< " and loading into IR" << endl;
         IR = InstructionPCPairs[(pc / 4)].second;
     }
 }
@@ -534,7 +533,7 @@ void dumpMemoryToMCFile(const std::unordered_map<uint32_t, uint8_t>& memory,cons
         }
         outFile << "\n";
     }
-
+    cout<<"Memory Dumped to memory.mc"<<endl;
     outFile.close();
 }
 
