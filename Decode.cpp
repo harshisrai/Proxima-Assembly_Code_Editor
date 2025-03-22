@@ -163,6 +163,43 @@ void MemAccess(string op, int value, int eff)
         MDR = value;
     }
 }
+void MemAccessforDataSeg(string op, int value, int eff)
+{
+    if (op == "SB" || op == "SH" || op == "SW")
+    {
+        unordered_set<int> st;
+        int size = 0;
+        if (op == "SB")
+        {
+            size = 1;
+        }
+        else if (op == "SH")
+        {
+            size = 2;
+        }
+        else if (op == "SW")
+        {
+            size = 4;
+        }
+
+        for (int i = 0; i < size; i++)
+        {
+            MainMemory[eff + i] = static_cast<uint8_t>(value & 0xFF); // Extract lowest 8 bits
+            value >>= 8;                                              // Shift right to get next byte
+            st.insert(eff+i-(eff+i)%4);
+        }
+        cout<<"STARTMEMORY"<<endl;
+        for(auto it:st){
+            cout<<"0x"<<it<<": ";
+            for(int i =0;i<4;i++){
+                cout << std::setw(2) << std::setfill('0') 
+                << static_cast<int>(MainMemory[it + i]) << " ";
+            }
+            cout<<endl;
+        }
+        cout<<"ENDMEMORY"<<endl;
+    }
+}
 
 // PC generator , the if /else-if cases illustrate the functioning of the MUXes in the flow
 //  Convention : Anything to do with PC , just call IAG with proper parameters , nothing else
@@ -639,7 +676,7 @@ int main()
             uint32_t memVal = stoul(memValStr, nullptr, 16);
 
             // Update MainMemory with the value at this address.
-            MemAccess("SW", memVal, memAddr);
+            MemAccessforDataSeg("SW", memVal, memAddr);
         }
     }
     inputFile.close();
@@ -647,6 +684,7 @@ int main()
 
     while (global_pc / 4 < InstructionPCPairs.size())
     {
+
         cout << "============================" << endl;
         cout << "FDEMW Cycle Start: PC = 0x" << hex << global_pc << dec << endl;
         int current_pc = global_pc;
@@ -657,7 +695,7 @@ int main()
         //this_thread::sleep_for(chrono::milliseconds(100));
         PMI(0, current_pc, 0, 0); // This call fetches the instruction into IR.
         cout << "[MAIN] Fetched Instruction: 0x" << hex << IR << dec << endl;
-
+        
         // ----- DECODE STAGE -----
         cout << "\n----- DECODE STAGE -----" << endl;
         // sleep for 100 milliseconds
@@ -726,10 +764,11 @@ int main()
         cout << "\n----- MEMORY STAGE -----" << endl;
         // sleep for 100 milliseconds
         //this_thread::sleep_for(chrono::milliseconds(100));
-        MAR = RZ;
-        cout << "MAR has been fed with effective address from RZ" <<RZ<< endl;
         if (opcode == 0x23)
         { // S-type: store operation has already computed the effective address.
+            
+        MAR = RZ;
+        cout << "MAR has been fed with effective address from RZ" << endl;
             MDR = RM;
             PMI(MAR, current_pc, RM, 0,to_uppercase(info[0]));
             // (Assuming PMI would update the memory in a real implementation)
@@ -737,7 +776,8 @@ int main()
         }
         else if (opcode == 0x03) // Example for load operations (if implemented)
         {
-            // CHANGE WITH RESPECT TO HARDIK'S CODE
+            MAR = RZ;
+            cout << "MAR has been fed with effective address from RZ" << endl;
             MDR = MainMemory[MAR];
             cout << "MDR has been fed with value" << MainMemory[MAR] << " from memory address 0x" << hex << MAR << " which was stored in MAR" << endl;
             PMI(MAR, current_pc, 0, stoi(info[1]),to_uppercase(info[0]));
