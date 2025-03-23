@@ -197,7 +197,7 @@ int IAG(int ra, int imm)
 {
     if (ra == 0 && imm == 0)
     {
-        cout << "IAG Call; new PC: " << global_pc + 4 << endl;
+        cout << "IAG Call; new PC: 0x" <<hex<< global_pc + 4 <<dec<< endl;
         return global_pc = global_pc + 4;
     }
     else if (ra == 0 && imm != 0)
@@ -617,6 +617,13 @@ int main()
         // When reading the instruction segment:
         if (readingInstructions)
         {
+            //if line is "exit"
+            if (to_uppercase(line) == "EXIT")
+            {   
+                //emplace into the map the pc and 0x0
+                InstructionPCPairs.emplace_back(pc, 0x0);
+            }
+
             // Skip header lines (for example, those containing "Address")
             if (line.find("Address") != string::npos)
                 continue;
@@ -682,14 +689,18 @@ int main()
         // ----- FETCH STAGE -----
         cout << "\n----- FETCH STAGE -----" << endl;
         // sleep for 100 milliseconds
-        //this_thread::sleep_for(chrono::milliseconds(100));
+        this_thread::sleep_for(chrono::milliseconds(10));
         PMI(0, current_pc, 0, 0); // This call fetches the instruction into IR.
         cout << "[MAIN] Fetched Instruction: 0x" << hex << IR << dec << endl;
-        
+        if(IR==0x0){
+            cout<<"[MAIN] Exit instruction encountered"<<endl;
+            break;
+        }
         // ----- DECODE STAGE -----
         cout << "\n----- DECODE STAGE -----" << endl;
         // sleep for 100 milliseconds
-        //this_thread::sleep_for(chrono::milliseconds(100));
+        this_thread::sleep_for(chrono::milliseconds(10));
+
         uint32_t opcode = IR & 0x7F;
         vector<string> info;
         int alu_output = 0;
@@ -712,7 +723,8 @@ int main()
         // ----- EXECUTE STAGE -----
         cout << "\n----- EXECUTE STAGE -----" << endl;
         // sleep for 100 milliseconds
-        //this_thread::sleep_for(chrono::milliseconds(100));
+        this_thread::sleep_for(chrono::milliseconds(10));
+
         if (opcode == 0x33)
         { // R-type instruction (e.g., ADD, SUB, etc.)
             alu_output = Execute("R", info[0], info[1], info[2], info[3], "");
@@ -753,7 +765,8 @@ int main()
         // ----- MEMORY STAGE -----
         cout << "\n----- MEMORY STAGE -----" << endl;
         // sleep for 100 milliseconds
-        //this_thread::sleep_for(chrono::milliseconds(100));
+        this_thread::sleep_for(chrono::milliseconds(10));
+
         if (opcode == 0x23)
         { // S-type: store operation has already computed the effective address.
             
@@ -819,7 +832,6 @@ int main()
         }
         else if (opcode == 0x63)
         { // Branches
-            cout<<alu_output<<endl;
             if (alu_output)
             {
                 global_pc = IAG(0, stoi(info[3]));
