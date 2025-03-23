@@ -1,0 +1,533 @@
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap");
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3 transparent);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: hsl(var(--background));
+}
+
+header {
+  min-height: 64px;
+  padding: 0 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.main-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+#editor-container {
+  flex: 1 1 0%;
+  min-width: 400px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+#output-container {
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.CodeMirror {
+  flex: 1;
+  height: 100% !important;
+  font-family: "JetBrains Mono", monospace !important;
+  font-size: 14px !important;
+}
+
+.tabs-list {
+  height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  background-color: hsl(var(--card));
+}
+
+.tab-trigger {
+  padding: 0.75rem 1rem;
+  margin-bottom: -1px;
+  border: none;
+  background: transparent;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  position: relative;
+}
+
+.tab-trigger.active {
+  border-bottom: 2px solid hsl(var(--primary));
+}
+
+.tab-content {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.btn-outline,
+.btn-primary,
+.btn-ghost {
+  padding: 0.5rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  line-height: 1;
+  border-radius: var(--radius);
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  border: none;
+}
+
+.btn-outline {
+  border: 1px solid hsl(var(--border));
+  background-color: transparent;
+}
+
+#resize-handle {
+  width: 5px;
+  background-color: hsl(var(--border));
+  margin: 0 -2px;
+  cursor: col-resize;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 10;
+}
+
+#resize-handle:hover {
+  background-color: hsl(var(--primary));
+  width: 9px;
+  margin: 0 -3px;
+}
+
+.memory-table {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(200px, 2fr);
+  align-items: center;
+  background-color: hsl(var(--border));
+  gap: 1px;
+}
+
+.memory-row {
+  display: flex;
+  background-color: hsl(var(--background));
+  padding: 0.75rem 1rem;
+}
+
+.register-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.register-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+}
+
+footer {
+  height: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 1.5rem;
+  font-size: 0.75rem;
+}
+
+.search-input {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius);
+  width: 100%;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 221.2 83.2% 53.3%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96.1%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 221.2 83.2% 53.3%;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 217.2 91.2% 59.8%;
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 224.3 76.3% 48%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.CodeMirror {
+  font-family: "JetBrains Mono", "Fira Code", monospace !important;
+  font-size: 14px !important;
+  height: 100% !important;
+  border-radius: 0 !important;
+}
+
+.CodeMirror-gutters {
+  border-right: 1px solid hsl(var(--border)) !important;
+  background-color: transparent !important;
+}
+
+.cm-s-dracula .CodeMirror-gutters {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.cm-s-solarized.cm-s-light .CodeMirror-gutters {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.CodeMirror-linenumber {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.CodeMirror-cursor {
+  border-left: 2px solid hsl(var(--primary)) !important;
+}
+
+.CodeMirror-selected {
+  background-color: hsl(var(--primary) / 0.2) !important;
+}
+
+.CodeMirror-focused .CodeMirror-selected {
+  background-color: hsl(var(--primary) / 0.3) !important;
+}
+
+.CodeMirror-line::selection,
+.CodeMirror-line > span::selection,
+.CodeMirror-line > span > span::selection {
+  background-color: hsl(var(--primary) / 0.3) !important;
+}
+
+.CodeMirror-activeline-background {
+  background-color: hsl(var(--muted) / 0.5) !important;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+.glow-effect {
+  box-shadow: 0 0 10px hsl(var(--primary) / 0.5);
+}
+
+.grid-bg {
+  background-image: linear-gradient(
+      to right,
+      hsl(var(--muted) / 0.1) 1px,
+      transparent 1px
+    ),
+    linear-gradient(to bottom, hsl(var(--muted) / 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.futuristic-border {
+  position: relative;
+  border: 1px solid hsl(var(--primary) / 0.3);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.futuristic-border::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--primary) / 0.2),
+    transparent
+  );
+  animation: border-glow 2s linear infinite;
+}
+
+@keyframes border-glow {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Custom classes for buttons and other elements */
+.btn-outline {
+  padding: 0.5rem 1rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background-color: transparent;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-primary {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: var(--radius);
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-ghost {
+  padding: 0.5rem;
+  border: none;
+  border-radius: var(--radius);
+  background-color: transparent;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tabs-list {
+  display: flex;
+  gap: 1rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.tab-trigger {
+  padding: 0.5rem 1rem;
+  border: none;
+  background-color: transparent;
+  color: hsl(var(--foreground));
+  cursor: pointer;
+}
+
+.tab-trigger.active {
+  background-color: hsl(var(--background));
+  border-bottom: 2px solid hsl(var(--primary));
+}
+
+.tab-content {
+  display: none;
+  padding: 1rem;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.output-content {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  white-space: pre;
+  background-color: hsl(var(--muted) / 0.3);
+  padding: 1rem;
+  border-radius: var(--radius);
+  height: calc(100vh - 175px);
+  /* height: 300px; */
+}
+
+.assemble-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background-color: hsl(var(--muted) / 0.3);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 14px;
+  color: white;
+  border-radius: var(--radius);
+}
+
+/* Autocomplete styling */
+.CodeMirror-hints {
+  font-family: "JetBrains Mono", monospace !important;
+  border: 1px solid hsl(var(--border)) !important;
+  background: hsl(var(--card)) !important;
+  box-shadow: 0 2px 8px hsl(var(--border) / 0.2);
+  border-radius: var(--radius) !important;
+}
+
+.CodeMirror-hint {
+  color: hsl(var(--foreground)) !important;
+  padding: 0.5rem 1rem !important;
+  transition: all 0.2s ease;
+}
+
+.CodeMirror-hint-active {
+  background: hsl(var(--primary) / 0.1) !important;
+  color: hsl(var(--primary)) !important;
+}
+
+/* Linter styling */
+.CodeMirror-lint-tooltip {
+  background: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: 0 2px 8px hsl(var(--border) / 0.2);
+}
+
+.CodeMirror-lint-marker-error,
+.CodeMirror-lint-message-error {
+  background-image: none !important;
+}
+
+.CodeMirror-lint-marker-error::after {
+  content: "⚠️";
+  color: hsl(var(--destructive));
+}
+
+.CodeMirror-lint-message-error {
+  border-bottom: 2px solid hsl(var(--destructive));
+  padding-bottom: 2px;
+}
+
+body.dark .stage-content {
+  color: #d4d4d4;
+}
+body:not(.dark) .stage-content {
+  color: black;
+}
+
+body.dark .memory-address {
+  color: #d4d4d4;
+}
+body:not(.dark) .memory-address {
+  color: black;
+}
+
+body.dark .assemble-content {
+  color: #d4d4d4;
+}
+body:not(.dark) .assemble-content {
+  color: black;
+}
+
+.memory-value {
+  color: #4fc3f7;
+}
+/* The cycle header (e.g., "FDEMW Cycle Start...") */
+.cycle-header {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #4fc3f7; /* Light blue for emphasis */
+  /* margin-bottom: 10px; */
+}
+
+/* The stage heading (e.g., "FETCH STAGE") */
+.stage-heading {
+  font-weight: bold;
+  color: #f78c6c; /* Light orange/pink for headings */
+  /* margin-top: 10px; */
+  margin-bottom: 5px;
+}
+
+/* The content within each stage */
+.stage-content {
+  margin-left: 20px;
+  white-space: pre-wrap; /* Preserve line breaks */
+}
+
+.search-container {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+.search-input {
+  flex: 1;
+  padding: 5px;
+}

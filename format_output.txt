@@ -1,0 +1,274 @@
+============================
+FDEMW Cycle Start: PC = 0x0
+
+----- FETCH STAGE -----
+PMI Call; Fetching instruction from PC 0
+[MAIN] Fetched Instruction: 0x500293
+
+----- DECODE STAGE -----
+Decoding instruction 500293
+
+----- EXECUTE STAGE -----
+ ALU Performing ADDI operation on register x0 with immediate 5
+
+----- MEMORY STAGE -----
+
+----- WRITE-BACK STAGE -----
+Writing value 5 to register x5
+
+----- PC UPDATE -----
+IAG Call; new PC: 4
+
+===== Cycle End, New PC: 0x4 =====
+
+Clock Cycles: 1
+============================
+============================
+FDEMW Cycle Start: PC = 0x4
+
+----- FETCH STAGE -----
+PMI Call; Fetching instruction from PC 4
+[MAIN] Fetched Instruction: 0x600313
+
+----- DECODE STAGE -----
+Decoding instruction 600313
+
+----- EXECUTE STAGE -----
+ ALU Performing ADDI operation on register x0 with immediate 6
+
+----- MEMORY STAGE -----
+
+----- WRITE-BACK STAGE -----
+Writing value 6 to register x6
+
+----- PC UPDATE -----
+IAG Call; new PC: 8
+
+===== Cycle End, New PC: 0x8 =====
+
+Clock Cycles: 2
+============================
+============================
+FDEMW Cycle Start: PC = 0x8
+
+----- FETCH STAGE -----
+PMI Call; Fetching instruction from PC 8
+[MAIN] Fetched Instruction: 0x100023b7
+
+----- DECODE STAGE -----
+Decoding instruction 100023b7
+
+----- EXECUTE STAGE -----
+ALU performing LUIon immediate 65538
+
+----- MEMORY STAGE -----
+
+----- WRITE-BACK STAGE -----
+
+----- PC UPDATE -----
+IAG Call; new PC: c
+
+===== Cycle End, New PC: 0xc =====
+
+Clock Cycles: 3
+============================
+============================
+FDEMW Cycle Start: PC = 0xc
+
+----- FETCH STAGE -----
+PMI Call; Fetching instruction from PC 12
+[MAIN] Fetched Instruction: 0x438393
+
+----- DECODE STAGE -----
+Decoding instruction 438393
+
+----- EXECUTE STAGE -----
+ ALU Performing ADDI operation on register x7 with immediate 4
+
+----- MEMORY STAGE -----
+
+----- WRITE-BACK STAGE -----
+Writing value 4 to register x7
+
+----- PC UPDATE -----
+IAG Call; new PC: 16
+
+===== Cycle End, New PC: 0x10 =====
+
+Clock Cycles: 4
+============================
+============================
+FDEMW Cycle Start: PC = 0x10
+
+----- FETCH STAGE -----
+PMI Call; Fetching instruction from PC 16
+[MAIN] Fetched Instruction: 0x629433
+
+----- DECODE STAGE -----
+Decoding instruction 629433
+
+----- EXECUTE STAGE -----
+ ALU Performing SLL operation on registers x5 & x6
+
+----- MEMORY STAGE -----
+
+----- WRITE-BACK STAGE -----
+Writing value 140 to register x8
+
+----- PC UPDATE -----
+IAG Call; new PC: 20
+
+===== Cycle End, New PC: 0x14 =====
+
+Clock Cycles: 5
+============================
+============================
+FDEMW Cycle Start: PC = 0x14
+
+----- FETCH STAGE -----
+PMI Call; Fetching instruction from PC 20
+[MAIN] Fetched Instruction: 0x83a023
+
+----- DECODE STAGE -----
+Decoding instruction 83a023
+
+----- EXECUTE STAGE -----
+4 0 4
+[EXECUTE] Effective Address: 4
+
+----- MEMORY STAGE -----
+PMI Call; Writing 140 to memory address 4
+
+----- WRITE-BACK STAGE -----
+
+----- PC UPDATE -----
+IAG Call; new PC: 18
+
+===== Cycle End, New PC: 0x18 =====
+
+Clock Cycles: 6
+============================
+============================
+FDEMW Cycle Start: PC = 0x18
+
+----- FETCH STAGE -----
+PMI Call; Fetching instruction from PC 24
+[MAIN] Fetched Instruction: 0x13a483
+
+----- DECODE STAGE -----
+Decoding instruction 13a483
+
+----- EXECUTE STAGE -----
+ ALU Performing LW operation on register x7 with immediate 1
+
+----- MEMORY STAGE -----
+
+----- WRITE-BACK STAGE -----
+Writing value 5 to register x9
+
+----- PC UPDATE -----
+IAG Call; new PC: 28
+
+===== Cycle End, New PC: 0x1c =====
+
+Clock Cycles: 7
+============================
+============================
+FDEMW Cycle Start: PC = 0x1c
+
+----- FETCH STAGE -----
+PMI Call; Fetching instruction from PC 28
+[MAIN] Fetched Instruction: 0x10000517
+
+----- DECODE STAGE -----
+Decoding instruction 10000517
+
+----- EXECUTE STAGE -----
+ALU performing AUIPCon immediate 65536
+
+----- MEMORY STAGE -----
+
+----- WRITE-BACK STAGE -----
+
+----- PC UPDATE -----
+IAG Call; new PC: 20
+
+===== Cycle End, New PC: 0x20 =====
+
+Clock Cycles: 8
+============================
+============================
+FDEMW Cycle Start: PC = 0x20
+
+----- FETCH STAGE -----
+PMI Call; Fetching instruction from PC 32
+[MAIN] Fetched Instruction: 0xfe450513
+
+----- DECODE STAGE -----
+Decoding instruction fe450513
+
+----- EXECUTE STAGE -----
+ ALU Performing ADDI operation on register x10 with immediate -28
+
+----- MEMORY STAGE -----
+
+----- WRITE-BACK STAGE -----
+Writing value ffffffe4 to register x10
+
+----- PC UPDATE -----
+IAG Call; new PC: 36
+
+===== Cycle End, New PC: 0x24 =====
+
+Clock Cycles: 9
+============================
+============================
+FDEMW Cycle Start: PC = 0x24
+
+----- FETCH STAGE -----
+PMI Call; Fetching instruction from PC 36
+[MAIN] Fetched Instruction: 0x50583
+
+----- DECODE STAGE -----
+Decoding instruction 50583
+
+----- EXECUTE STAGE -----
+ ALU Performing LB operation on register x10 with immediate 0
+
+----- MEMORY STAGE -----
+
+----- WRITE-BACK STAGE -----
+Writing value ffffffe4 to register x11
+
+----- PC UPDATE -----
+IAG Call; new PC: 40
+
+===== Cycle End, New PC: 0x28 =====
+
+Clock Cycles: 10
+============================
+============================
+FDEMW Cycle Start: PC = 0x28
+
+----- FETCH STAGE -----
+PMI Call; Fetching instruction from PC 40
+[MAIN] Fetched Instruction: 0x150603
+
+----- DECODE STAGE -----
+Decoding instruction 150603
+
+----- EXECUTE STAGE -----
+ ALU Performing LB operation on register x10 with immediate 1
+
+----- MEMORY STAGE -----
+
+----- WRITE-BACK STAGE -----
+Writing value ffffffe5 to register x12
+
+----- PC UPDATE -----
+IAG Call; new PC: 44
+
+===== Cycle End, New PC: 0x2c =====
+
+Clock Cycles: 11
+============================
