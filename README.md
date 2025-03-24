@@ -14,7 +14,7 @@ This repository is a complete project developed for CS204. It consists of two ma
 - **README.md**  
   This file describes the project, its structure, and how to use it.
 
-- **Decode.cpp**  
+- **phase2.cpp**  
   Contains the main simulator code. It implements:
   - Instruction decoding (for R, I, S, SB, U, and UJ types)
   - ALU operations
