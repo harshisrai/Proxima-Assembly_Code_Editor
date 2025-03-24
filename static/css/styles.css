@@ -150,6 +150,9 @@ header {
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
 }
+.register-value {
+  color: #4fc3f7;
+}
 
 footer {
   height: 32px;

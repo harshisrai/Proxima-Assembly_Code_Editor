@@ -9,8 +9,8 @@ app = Flask(__name__)
 def index():
     user_code = ""
     table_data = []
-    memory=[]
-    memoryDict={}
+    memory = []
+    memoryDict = {}
     if request.method == "POST":
         # Retrieve code submitted by the user
         user_code = request.form.get("code")
@@ -63,19 +63,19 @@ def index():
                     match = re.match(r"^(\S+)\s+(\S+)$", line)
                     if match:
                         address = match.group(1)
-                        value= match.group(2)
+                        value = match.group(2)
                         value = value[2:]
                         # if the address isn't multiple of 4, find the greatest multiple of 4 less than the address and add 0s and load to that address
                         address = int(address, 16)
-                        if address%4 != 0:
-                            rem= address%4
+                        if address % 4 != 0:
+                            rem = address % 4
                             address = address - rem
-                            print("before: ",value)
-                            #value should have (address%4)*2 0s added at the right end
-                            print("address%4: ",rem)
-                            value = value + '0'*(rem)*2
-                            print("after: ",value)
-                            #make it 8 digit hex
+                            print("before: ", value)
+                            # value should have (address%4)*2 0s added at the right end
+                            print("address%4: ", rem)
+                            value = value + "0" * (rem) * 2
+                            print("after: ", value)
+                            # make it 8 digit hex
                             value = value.zfill(8)
                             address = hex(address)
                         else:
@@ -87,32 +87,41 @@ def index():
                             print(memoryDict[address])
                             print(value)
                             print("\n\n")
-                            memoryDict[address] = hex(int(memoryDict[address], 16) + int(value, 16))
-                            #make it 8 digit hex
+                            memoryDict[address] = hex(
+                                int(memoryDict[address], 16) + int(value, 16)
+                            )
+                            # make it 8 digit hex
                             memoryDict[address] = memoryDict[address][2:].zfill(8)
                         else:
                             memoryDict[address] = value
-                        
-                        
-                print(memoryDict)        
-                #convert memory dictionary to list of dictionaries
+
+                print(memoryDict)
+                # convert memory dictionary to list of dictionaries
                 for key in memoryDict:
                     memory.append(
                         {
                             "address": key,
-                            "value": "  ".join(memoryDict[key][i:i+2] for i in range(0, len(memoryDict[key]), 2))
-                        })    
+                            "value": "  ".join(
+                                memoryDict[key][i : i + 2]
+                                for i in range(0, len(memoryDict[key]), 2)
+                            ),
+                        }
+                    )
                 print("Table Data")
                 print(table_data)
-                print("Memory") 
+                print("Memory")
                 print(memory)
         except Exception as e:
             return f"Error starting phase.exe: {e}"
 
-        return render_template("index.html", code=user_code, table_data=table_data, memory=memory)
+        return render_template(
+            "index.html", code=user_code, table_data=table_data, memory=memory
+        )
 
     # Render the index.html template for GET requests
-    return render_template("index.html", code=user_code, table_data=table_data, memory=memory)
+    return render_template(
+        "index.html", code=user_code, table_data=table_data, memory=memory
+    )
 
 
 @app.route("/stream")
@@ -139,6 +148,7 @@ def stream_output():
     except Exception as e:
         yield f"Error starting phase2.exe: {e}"
         return
+
 
 if __name__ == "__main__":
     app.run(debug=True)

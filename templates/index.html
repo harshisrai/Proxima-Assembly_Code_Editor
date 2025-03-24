@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Assembly Studio</title>
+    <title>NH2 Studio</title>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/codemirror.min.css"
@@ -45,7 +45,7 @@
           <!-- <path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /> -->
           <!-- </svg> -->
           <!-- </div> -->
-          <h1 class="text-xl font-bold">Assembly Studio</h1>
+          <h1 class="text-xl font-bold">NH<sub>2</sub> Studio</h1>
         </div>
         <div class="flex items-center space-x-4">
           <input
@@ -186,8 +186,21 @@
             <div class="tab-content" data-tab="registers">
               <div id="register-viewer">
                 <div class="flex flex-col h-full">
-                  <div class="p-3 border-b border-border bg-card">
+                  <div
+                    class="p-3 border-b border-border flex items-center gap-3 bg-card"
+                  >
                     <h3 class="text-sm font-medium">Register State</h3>
+                    <select
+                      id="display-mode-reg"
+                      style="background: #000"
+                      class="btn"
+                      onchange="updateDisplayModeReg()"
+                    >
+                      <option value="hex">Hex</option>
+                      <option value="decimal">Decimal</option>
+                      <option value="unsigned">Unsigned</option>
+                      <option value="ascii">ASCII</option>
+                    </select>
                   </div>
                   <div class="register-grid flex-1 overflow-auto p-3"></div>
                 </div>
@@ -264,279 +277,346 @@
     ></script>
 
     <script>
-            const sampleMemory = {{ memory | tojson | safe }};
-            console.log(sampleMemory);
+                  let sampleMemory = {{ memory | tojson | safe }};
+                  // console.log(sampleMemory);
 
-            function renderMemory(filter = "") {
-                  const memoryContent = document.getElementById("memory-content");
-                  const displayMode = document.getElementById("display-mode").value;
-                  memoryContent.innerHTML = "";
+                  function renderMemory(filter = "") {
+                        const memoryContent = document.getElementById("memory-content");
+                        const displayMode = document.getElementById("display-mode").value;
+                        memoryContent.innerHTML = "";
 
-                  sampleMemory.forEach(({ address, value }) => {
-                      if (filter && !address.includes(filter) && !value.includes(filter)) return;
+                        sampleMemory.forEach(({ address, value }) => {
+                            if (filter && !address.includes(filter) && !value.includes(filter)) return;
 
-                      const formattedValue = formatValue(value, displayMode);
+                            const formattedValue = formatValue(value, displayMode);
 
-                      const row = document.createElement("div");
-                      row.className = "grid grid-cols-2 p-2 border-b border-gray-700";
-                      row.innerHTML = `<div class='memory-address font-mono'>${address}</div><div class='memory-value font-mono'>${formattedValue}</div>`;
-                      memoryContent.appendChild(row);
-                  });
-              }
-
-              function formatValue(value, mode) {
-                  let bytes = value.split(/\s+/).map(v => parseInt(v, 16));
-                  switch (mode) {
-                      case "decimal": return bytes.map(v => v.toString()).join("  ");
-                      case "unsigned": return bytes.map(v => (v >>> 0).toString()).join("  ");
-                      case "ascii": return bytes.map(v => (v >= 32 && v <= 126) ? String.fromCharCode(v) : '.').join("  ");
-                      default: return value;
-                  }
-              }
-
-              function searchMemory() {
-                  const query = document.getElementById("search").value.trim().toLowerCase();
-                  renderMemory(query);
-              }
-
-              function updateDisplayMode() {
-                  renderMemory();
-              }
-
-            let registerMap = new Map([
-        ["x0", "0x00000000"],
-        ["x1", "0x00000000"],
-        ["x2", "0x7FFFFFDC"],
-        ["x3", "0x10000000"],
-        ["x4", "0x00000000"],
-        ["x5", "0x00000000"],
-        ["x6", "0x00000000"],
-        ["x7", "0x00000000"],
-        ["x8", "0x00000000"],
-        ["x9", "0x00000000"],
-        ["x10", "0x00000001"],
-        ["x11", "0x7FFFFFDC"],
-        ["x12", "0x00000000"],
-        ["x13", "0x00000000"],
-        ["x14", "0x00000000"],
-        ["x15", "0x00000000"],
-        ["x16", "0x00000000"],
-        ["x17", "0x00000000"],
-        ["x18", "0x00000000"],
-        ["x19", "0x00000000"],
-        ["x20", "0x00000000"],
-        ["x21", "0x00000000"],
-        ["x22", "0x00000000"],
-        ["x23", "0x00000000"],
-        ["x24", "0x00000000"],
-        ["x25", "0x00000000"],
-        ["x26", "0x00000000"],
-        ["x27", "0x00000000"],
-        ["x28", "0x00000000"],
-        ["x29", "0x00000000"],
-        ["x30", "0x00000000"],
-        ["x31", "0x00000000"]
-      ]);
-
-            //print registers
-            const registerViewer = document.querySelector(".register-grid");
-            //wrap in a function
-            function renderRegisters() {
-              registerViewer.innerHTML = "";
-              registerMap.forEach((value, key) => {
-                const registerItem = document.createElement("div");
-                registerItem.classList.add("register-item");
-                registerItem.innerHTML = `
-                <div class="register-name">${key}</div>
-                <div class="register-value" style="color: #4fc3f7">${value}</div>
-                `;
-                registerViewer.appendChild(registerItem);
-              });
-            }
-
-            // registerMap.forEach((value, key) => {
-            //   const registerItem = document.createElement("div");
-            //   registerItem.classList.add("register-item");
-            //   registerItem.innerHTML = `
-            //   <div class="register-name">${key}</div>
-            //   <div class="register-value" style="color: #4fc3f7">${value}</div>
-            //   `;
-            //   registerViewer.appendChild(registerItem);
-            // });
-
-            renderRegisters();
-            // Get references to the form and button
-            const form = document.getElementById("codeForm");
-            const submitButton = document.getElementById("assemble-btn");
-            // Add an event listener to submit the form when the button is clicked
-            submitButton.addEventListener("click", function () {
-              form.submit();
-            });
-            function startStream() {
-              const outputDiv = document.getElementById("output");
-              outputDiv.innerHTML = ""; // Clear previous output
-              document.querySelector('[data-tab="output"]').click();
-              const statusIndicator = document.getElementById("status-indicator");
-              const statusText = document.getElementById("status-text");
-              statusIndicator.classList.remove("bg-blue-500");
-              statusIndicator.classList.add("bg-green-500", "animate-pulse");
-              statusText.textContent = "Running...";
-
-              fetch("/stream")
-                .then((response) => {
-                  const reader = response.body.getReader();
-                  const decoder = new TextDecoder();
-
-                  function readStream() {
-                    return new Promise((resolve) => {
-                      function process() {
-                        reader.read().then(({ done, value }) => {
-                          if (done) {
-                            resolve(); // Resolve when stream is fully read
-                            return;
-                          }
-                          let chunk = decoder.decode(value);
-                          let beautifiedChunk = beautifyOutput(chunk);
-                          outputDiv.innerHTML += beautifiedChunk;
-                          outputDiv.scrollTop = outputDiv.scrollHeight;
-                          process(); // Continue reading
+                            const row = document.createElement("div");
+                            row.className = "grid grid-cols-2 p-2 border-b border-gray-700";
+                            row.innerHTML = `<div class='memory-address font-mono'>${address}</div><div class='memory-value font-mono'>${formattedValue}</div>`;
+                            memoryContent.appendChild(row);
                         });
-                      }
-                      process();
+                    }
+
+                    function formatValue(value, mode) {
+                        let bytes = value.split(/\s+/).map(v => parseInt(v, 16));
+                        switch (mode) {
+                            case "decimal": return bytes.map(v => (v|0).toString()).join("  ");
+                            case "unsigned": return bytes.map(v => (v >>> 0).toString()).join("  ");
+                            case "ascii": return bytes.map(v => (v >= 32 && v <= 126) ? String.fromCharCode(v) : '.').join("  ");
+                            default: return value;
+                        }
+                    }
+
+                    function searchMemory() {
+                        const query = document.getElementById("search").value.trim().toLowerCase();
+                        renderMemory(query);
+                    }
+
+                    function updateDisplayMode() {
+                        renderMemory();
+                    }
+
+                  let registerMap = new Map([
+              ["x0", "0x00000000"],
+              ["x1", "0x00000000"],
+              ["x2", "0x7FFFFFDC"],
+              ["x3", "0x00000000"],
+              ["x4", "0x00000000"],
+              ["x5", "0x00000000"],
+              ["x6", "0x00000000"],
+              ["x7", "0x00000000"],
+              ["x8", "0x00000000"],
+              ["x9", "0x00000000"],
+              ["x10", "0x00000001"],
+              ["x11", "0x7FFFFFDC"],
+              ["x12", "0x00000000"],
+              ["x13", "0x00000000"],
+              ["x14", "0x00000000"],
+              ["x15", "0x00000000"],
+              ["x16", "0x00000000"],
+              ["x17", "0x00000000"],
+              ["x18", "0x00000000"],
+              ["x19", "0x00000000"],
+              ["x20", "0x00000000"],
+              ["x21", "0x00000000"],
+              ["x22", "0x00000000"],
+              ["x23", "0x00000000"],
+              ["x24", "0x00000000"],
+              ["x25", "0x00000000"],
+              ["x26", "0x00000000"],
+              ["x27", "0x00000000"],
+              ["x28", "0x00000000"],
+              ["x29", "0x00000000"],
+              ["x30", "0x00000000"],
+              ["x31", "0x00000000"]
+            ]);
+
+                  //print registers
+                  const registerViewer = document.querySelector(".register-grid");
+                  //wrap in a function
+                  function renderRegisters_() {
+                    registerViewer.innerHTML = "";
+                    registerMap.forEach((value, key) => {
+                      const registerItem = document.createElement("div");
+                      registerItem.classList.add(...["grid", "grid-cols-2", "p-2", "border-b", "border-gray-700"]);
+                      registerItem.innerHTML = `
+                      <div class="register-name font-mono">${key}</div>
+                      <div class="register-value font-mono">${value}</div>
+                      `;
+                      registerViewer.appendChild(registerItem);
                     });
                   }
 
-                  return readStream(); // Return promise to wait for completion
-                })
-                .then(() => {
-                  statusIndicator.classList.remove("bg-green-500", "animate-pulse");
-                  statusIndicator.classList.add("bg-blue-500");
-                  statusText.textContent = "Ready";
-                })
-                .catch((error) => {
-                  console.error("Error:", error);
-                  statusIndicator.classList.remove("bg-green-500", "animate-pulse");
-                  statusIndicator.classList.add("bg-red-500");
-                  statusText.textContent = "Error";
-                });
+                  // registerMap.forEach((value, key) => {
+                  //   const registerItem = document.createElement("div");
+                  //   registerItem.classList.add("register-item");
+                  //   registerItem.innerHTML = `
+                  //   <div class="register-name">${key}</div>
+                  //   <div class="register-value" style="color: #4fc3f7">${value}</div>
+                  //   `;
+                  //   registerViewer.appendChild(registerItem);
+                  // });
 
-              // Run button click handler
+                  renderRegisters_();
+
+                  // Renders registers with optional filtering.
+      // Renders all registers, optionally filtering by register name/value.
+      function renderRegisters(filter = "") {
+          const registerGrid = document.querySelector(".register-grid");
+          const displayMode = document.getElementById("display-mode-reg").value;
+          registerGrid.innerHTML = "";
+
+          // Convert filter to lowercase for case-insensitive matching.
+          const lowerFilter = filter.toLowerCase();
+
+          for (const [regName, regValue] of registerMap.entries()) {
+            // Skip if filter is set and neither the register name nor its value matches.
+            if (
+              lowerFilter &&
+              !regName.toLowerCase().includes(lowerFilter) &&
+              !regValue.toLowerCase().includes(lowerFilter)
+            ) {
+              continue;
             }
 
+            // Format the register's value according to the display mode.
+            const formattedValue = formatValueReg(regValue, displayMode);
 
+            // Create a row for this register.
+            const row = document.createElement("div");
+            row.className = " register-item grid grid-cols-2 p-2 border-b border-gray-700";
 
-            let memline=false;
-            function beautifyOutput(rawText) {
+            row.innerHTML = `
+              <div class='register-name font-mono'>${regName}</div>
+              <div class='register-value font-mono'>${formattedValue}</div>
+            `;
+            registerGrid.appendChild(row);
+          }
+        }
 
-            let cycles = rawText.split(/={20,}/).map(c => c.trim()).filter(c => c !== "");
-            let html = "";
+        // Formats a 32-bit hex string based on the selected mode.
+        function formatValueReg(value, mode) {
+          // Strip any existing '0x' from the front, then parse as 32-bit unsigned.
+          const cleanHex = value.replace(/^0x/i, "");
+          const number = parseInt(cleanHex, 16) >>> 0;
 
-            cycles.forEach(cycleText => {
-              const lines = cycleText.split("\n").map(line => line.trim());
-              let cycleHtml = "";
-              let stageHtml = "";
-              let cycleHeader = "";
+          switch (mode) {
+            case "decimal":
+              // Return the decimal representation of the 32-bit value.
+              return (number | 0).toString(10);
 
-              if (lines[0].startsWith("FDEMW Cycle Start:")) {
-                cycleHeader = `<div class="cycle-header">${lines[0]}</div>`;
+            case "unsigned":
+              // Same as decimal, clarifies usage as unsigned.
+              return number.toString(10);
+
+            case "ascii":
+              // Convert the 32-bit number to four bytes, then to ASCII if printable.
+              const paddedHex = number.toString(16).padStart(8, "0");
+              let asciiStr = "";
+              for (let i = 0; i < 8; i += 2) {
+                const byte = parseInt(paddedHex.substr(i, 2), 16);
+                asciiStr += (byte >= 32 && byte <= 126) ? String.fromCharCode(byte) : ".";
               }
+              return asciiStr;
 
-
-              lines.forEach(line => {
-                  if (memline || line.startsWith("STARTMEMORY")) {
-                    //print line
-                    // console.log(line);
-                    if(line && line.startsWith("ENDMEMORY")){
-                      memline=false;
-                    }
-                    else if(!line.startsWith("STARTMEMORY")){
-                      memline=true;
-                      const mem = line.split(" ");
-                      const address = mem[0];
-                      // value is concatenated with the rest of the array
-                      const value = mem.slice(1).join(" ");
-                      console.log("MEMORY CHANGE");
-                      console.log("ADDR:",address, "VAL:",value);
-                      const index = sampleMemory.findIndex(mem => mem.address === address);
-
-      if (index !== -1) {
-          // If address exists, update its value
-          sampleMemory[index].value = value;
-      } else {
-          // If address doesn't exist, add it as a new entry
-          sampleMemory.push({ address, value });
+            default:
+              // For "hex" or any unrecognized mode, return 8-digit hex with "0x" prefix.
+              const hexStr = number.toString(16).toUpperCase().padStart(8, "0");
+              return "0x" + hexStr;
+          }
+        }
+      // Update the display mode by re-rendering the registers.
+      function updateDisplayModeReg() {
+          renderRegisters();
       }
 
-                      renderMemory();
-                    }//NEXT LINE
-                    else{
-                      memline=true;
+                  // Get references to the form and button
+                  const form = document.getElementById("codeForm");
+                  const submitButton = document.getElementById("assemble-btn");
+                  // Add an event listener to submit the form when the button is clicked
+                  submitButton.addEventListener("click", function () {
+                    form.submit();
+                  });
+                  function startStream() {
+                    const outputDiv = document.getElementById("output");
+                    outputDiv.innerHTML = ""; // Clear previous output
+                    document.querySelector('[data-tab="output"]').click();
+                    const statusIndicator = document.getElementById("status-indicator");
+                    const statusText = document.getElementById("status-text");
+                    statusIndicator.classList.remove("bg-blue-500");
+                    statusIndicator.classList.add("bg-green-500", "animate-pulse");
+                    statusText.textContent = "Running...";
+
+                    fetch("/stream")
+                      .then((response) => {
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+
+                        function readStream() {
+                          return new Promise((resolve) => {
+                            function process() {
+                              reader.read().then(({ done, value }) => {
+                                if (done) {
+                                  resolve(); // Resolve when stream is fully read
+                                  return;
+                                }
+                                let chunk = decoder.decode(value);
+                                let beautifiedChunk = beautifyOutput(chunk);
+                                outputDiv.innerHTML += beautifiedChunk;
+                                outputDiv.scrollTop = outputDiv.scrollHeight;
+                                process(); // Continue reading
+                              });
+                            }
+                            process();
+                          });
+                        }
+
+                        return readStream(); // Return promise to wait for completion
+                      })
+                      .then(() => {
+                        statusIndicator.classList.remove("bg-green-500", "animate-pulse");
+                        statusIndicator.classList.add("bg-blue-500");
+                        statusText.textContent = "Ready";
+                        // Step 1: Convert object to array of [key, value] pairs
+                        sampleMemory.sort((a, b) => {
+        return parseInt(a.address, 16) - parseInt(b.address, 16);
+      });
+                        renderMemory();
+
+      // console.log(sampleMemory);
+                      })
+                      .catch((error) => {
+                        console.error("Error:", error);
+                        statusIndicator.classList.remove("bg-green-500", "animate-pulse");
+                        statusIndicator.classList.add("bg-red-500");
+                        statusText.textContent = "Error";
+                      });
+
+                    // Run button click handler
+                  }
+
+
+
+                  let memline=false;
+                  function beautifyOutput(rawText) {
+
+                  let cycles = rawText.split(/={20,}/).map(c => c.trim()).filter(c => c !== "");
+                  let html = "";
+
+                  cycles.forEach(cycleText => {
+                    const lines = cycleText.split("\n").map(line => line.trim());
+                    let cycleHtml = "";
+                    let stageHtml = "";
+                    let cycleHeader = "";
+
+                    if (lines[0].startsWith("FDEMW Cycle Start:")) {
+                      cycleHeader = `<div class="cycle-header">${lines[0]}</div>`;
                     }
-                  }
-                  else if (line.startsWith("-----") && line.endsWith("-----")) {
-                  const stageName = line.replace(/^-+|\-+$/g, "").trim();
-                  stageHtml += `<div class="stage-heading">${stageName}</div>`;
-                } else if(line.startsWith("=====") && line.endsWith("=====")) {
-                  stageHtml += `<div class="stage-content">${line}<br/><br/><br/></div>`;
-                  }
-                  else if (line && line.startsWith("Writing value")) {
-                  stageHtml += `<div class="stage-content">${line}</div>`;
-                  // split line into arr
-                  let arr = line.split(" ");
-                  val=arr[2];
-                  val = val.slice(2);
-                  val = val.padStart(8, '0');
-                  val = "0x" + val;
-                  reg=arr[5];
-                  registerMap.set(reg, val);
-                  renderRegisters();
-                  }
 
-                  else if (line && !line.startsWith("FDEMW Cycle Start:")) {
-                  stageHtml += `<div class="stage-content">${line}</div>`;
-                }
-              });
 
-              cycleHtml = `${cycleHeader}${stageHtml}`;
-              html += cycleHtml;
-            });
+                    lines.forEach(line => {
+                        if (memline || line.startsWith("STARTMEMORY")) {
+                          //print line
+                          // console.log(line);
+                          if(line && line.startsWith("ENDMEMORY")){
+                            memline=false;
+                          }
+                          else if(!line.startsWith("STARTMEMORY")){
+                            memline=true;
+                            const mem = line.split(" ");
+                            const address = mem[0];
+                            // value is concatenated with the rest of the array
+                            const value = mem.slice(1).join(" ");
+                            // console.log("MEMORY CHANGE");
+                            // console.log("ADDR:",address, "VAL:",value);
+                            const index = sampleMemory.findIndex(mem => mem.address === address);
 
-            return html;
+            if (index !== -1) {
+                // If address exists, update its value
+                sampleMemory[index].value = value;
+            } else {
+                // If address doesn't exist, add it as a new entry
+                sampleMemory.push({ address, value });
             }
 
-            form.addEventListener("submit", function (event) {
-              event.preventDefault(); // Prevent the form from submitting the traditional way
+                            renderMemory();
+                          }//NEXT LINE
+                          else{
+                            memline=true;
+                          }
+                        }
+                        else if (line.startsWith("-----") && line.endsWith("-----")) {
+                        const stageName = line.replace(/^-+|\-+$/g, "").trim();
+                        stageHtml += `<div class="stage-heading">${stageName}</div>`;
+                      } else if(line.startsWith("=====") && line.endsWith("=====")) {
+                        stageHtml += `<div class="stage-content">${line}<br/><br/><br/></div>`;
+                        }
+                        else if (line && line.startsWith("Writing value")) {
+                        stageHtml += `<div class="stage-content">${line}</div>`;
+                        // split line into arr
+                        let arr = line.split(" ");
+                        val=arr[2];
+                        val = val.slice(2);
+                        val = val.padStart(8, '0');
+                        val = "0x" + val;
+                        reg=arr[5];
+                        registerMap.set(reg, val);
+                        renderRegisters();
+                        }
 
-              const code = document.getElementById("code-editor").value; // Get the code entered by the user
+                        else if (line && !line.startsWith("FDEMW Cycle Start:")) {
+                        stageHtml += `<div class="stage-content">${line}</div>`;
+                      }
+                    });
 
-              // Send the code via AJAX to the server
-              fetch("/", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ code }),
-              })
-                .then((response) => response.json())
-                .then((data) => {
-                  console.log("Success:", data);
-                })
-                .catch((error) => {
-                  console.error("Error:", error);
-                });
-            });
-            // $('#codeForm').submit(function(event) {
-            //     event.preventDefault(); // Prevent the form from submitting the traditional way
+                    cycleHtml = `${cycleHeader}${stageHtml}`;
+                    html += cycleHtml;
+                  });
 
-            //     var code = $('#code').val(); // Get the code entered by the user
+                  return html;
+                  }
 
-            //     // Send the code via AJAX to the server
-            //     $.ajax({
-            //         type: 'POST',
-            //         url: '/',
-            //         data: { code: code },
-            //     });
-            // });
+                  form.addEventListener("submit", function (event) {
+                    event.preventDefault(); // Prevent the form from submitting the traditional way
+
+                    const code = document.getElementById("code-editor").value; // Get the code entered by the user
+
+                    // Send the code via AJAX to the server
+                    fetch("/", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({ code }),
+                    })
+                      .then((response) => response.json())
+                      .then((data) => {
+                        console.log("Success:", data);
+                      })
+                      .catch((error) => {
+                        console.error("Error:", error);
+                      });
+                  });
     </script>
   </body>
 </html>

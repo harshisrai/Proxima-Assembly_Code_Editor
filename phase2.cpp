@@ -16,17 +16,17 @@
 using namespace std;
 
 // defining global structures that will be used throughout the process
-int global_pc = 0x0;
+uint32_t global_pc = 0x0;
 uint32_t IR = 0x0;
-uint32_t MDR = 0x0;
+int MDR = 0x0;
 uint32_t MAR = 0x0;
-uint32_t RM = 0x0;
-uint32_t RZ = 0x0;
-uint32_t RY = 0x0;
+int RM = 0x0;
+int RZ = 0x0;
+int RY = 0x0;
 // Register file (x0 to x31) - initialized with preloaded values
 vector<int> RegFile={0,0,2147483612,268435456,0,0,0,0,0,0,1,2147483612,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 vector<pair<int, uint32_t>> InstructionPCPairs;
-unordered_map<uint32_t, uint32_t> MainMemory;//uint8_t cause byte
+unordered_map<uint32_t, int> MainMemory;//uint8_t cause byte
 
 // Register names (x0 to x31)
 const string regNums[32] = {
@@ -197,7 +197,7 @@ int IAG(int ra, int imm)
 {
     if (ra == 0 && imm == 0)
     {
-        cout << "IAG Call; new PC: " << global_pc + 4 << endl;
+        cout << "IAG Call; new PC: 0x" <<hex<< global_pc + 4 <<dec<< endl;
         return global_pc = global_pc + 4;
     }
     else if (ra == 0 && imm != 0)
@@ -237,7 +237,7 @@ void PMI(int EA, int pc, int data, int ra, string action = "")
 }
 
 // depending on operation
-uint32_t ALU(uint32_t val1, uint32_t val2, string OP)
+uint32_t ALU(int val1, int val2, string OP)
 {
     if (OP == "ADD" || OP == "ADDI" || OP == "LB" || OP == "LD" || OP == "LH" || OP == "LW" || OP == "JALR" || OP == "JAL" || OP == "SB" || OP == "SH" || OP == "SD" || OP == "SW")
     {
@@ -446,7 +446,7 @@ int Execute(string Type, string op, string rd, string rs1, string rs2, string im
     if (Type == "R")
     {
         cout << " ALU Performing " << op << " operation on registers " << "x" << rs1 << " & " << "x" << rs2 << endl;
-        uint32_t val = ALU(RegFile[stoi(rs1)], RegFile[stoi(rs2)], op);
+        int val = ALU(RegFile[stoi(rs1)], RegFile[stoi(rs2)], op);
         RZ = val;
         cout << "ALU output has been fed to RZ" << endl;
         return val;
@@ -461,7 +461,7 @@ int Execute(string Type, string op, string rd, string rs1, string rs2, string im
         {
             cout << "ALU calculating effective address for " << op << " operation using register x" << rs1 << " and immediate " << imm << endl;
         }
-        uint32_t val = ALU(RegFile[stoi(rs1)], stoi(imm), op);
+        int val = ALU(RegFile[stoi(rs1)], stoi(imm), op);
         RZ = val;
         cout << "ALU output has been fed to RZ" << endl;
 
@@ -481,7 +481,7 @@ int Execute(string Type, string op, string rd, string rs1, string rs2, string im
     else if (Type == "U")
     {
         cout << "ALU performing " << op << " on immediate " << imm << endl;
-        uint32_t val = ALU(stoi(imm), global_pc, op);
+        int val = ALU(stoi(imm), global_pc, op);
         RZ = val;
         cout << "ALU output has been fed to RZ" << endl;
         return val;
@@ -500,7 +500,7 @@ std::string to_uppercase(const std::string& input) {
     return result;
 }
 
-void dumpMemoryToMCFile(const std::unordered_map<uint32_t, uint32_t>& memory,const std::string& filename)
+void dumpMemoryToMCFile(const std::unordered_map<uint32_t, int>& memory,const std::string& filename)
 {
     // If memory is empty, just create an empty file.
     if (memory.empty()) {
@@ -617,6 +617,13 @@ int main()
         // When reading the instruction segment:
         if (readingInstructions)
         {
+            //if line is "exit"
+            if (to_uppercase(line) == "EXIT")
+            {   
+                //emplace into the map the pc and 0x0
+                InstructionPCPairs.emplace_back(pc, 0x0);
+            }
+
             // Skip header lines (for example, those containing "Address")
             if (line.find("Address") != string::npos)
                 continue;
@@ -663,7 +670,7 @@ int main()
 
             // Convert memory address and value from hexadecimal to integers.
             uint32_t memAddr = stoi(memAddrStr, nullptr, 16);
-            uint32_t memVal = stoul(memValStr, nullptr, 16);
+            int memVal = stoul(memValStr, nullptr, 16);
             // cout<<"Memory address 0x"<<hex<<memAddr<<" has been loaded with value 0x"<<memVal<<endl;
             // Update MainMemory with the value at this address.
             MemAccessforDataSeg("SW", memVal, memAddr);
@@ -682,14 +689,18 @@ int main()
         // ----- FETCH STAGE -----
         cout << "\n----- FETCH STAGE -----" << endl;
         // sleep for 100 milliseconds
-        //this_thread::sleep_for(chrono::milliseconds(100));
+        // this_thread::sleep_for(chrono::milliseconds(10));
         PMI(0, current_pc, 0, 0); // This call fetches the instruction into IR.
         cout << "[MAIN] Fetched Instruction: 0x" << hex << IR << dec << endl;
-        
+        if(IR==0x0){
+            cout<<"[MAIN] Exit instruction encountered"<<endl;
+            break;
+        }
         // ----- DECODE STAGE -----
         cout << "\n----- DECODE STAGE -----" << endl;
         // sleep for 100 milliseconds
-        //this_thread::sleep_for(chrono::milliseconds(100));
+        // this_thread::sleep_for(chrono::milliseconds(10));
+
         uint32_t opcode = IR & 0x7F;
         vector<string> info;
         int alu_output = 0;
@@ -712,7 +723,8 @@ int main()
         // ----- EXECUTE STAGE -----
         cout << "\n----- EXECUTE STAGE -----" << endl;
         // sleep for 100 milliseconds
-        //this_thread::sleep_for(chrono::milliseconds(100));
+        // this_thread::sleep_for(chrono::milliseconds(10));
+
         if (opcode == 0x33)
         { // R-type instruction (e.g., ADD, SUB, etc.)
             alu_output = Execute("R", info[0], info[1], info[2], info[3], "");
@@ -753,7 +765,8 @@ int main()
         // ----- MEMORY STAGE -----
         cout << "\n----- MEMORY STAGE -----" << endl;
         // sleep for 100 milliseconds
-        //this_thread::sleep_for(chrono::milliseconds(100));
+        // this_thread::sleep_for(chrono::milliseconds(10));
+
         if (opcode == 0x23)
         { // S-type: store operation has already computed the effective address.
             
@@ -819,9 +832,9 @@ int main()
         }
         else if (opcode == 0x63)
         { // Branches
-            cout<<alu_output<<endl;
             if (alu_output)
-            {
+            {   
+                cout<<"Yes\n"<<info[3]<<endl;
                 global_pc = IAG(0, stoi(info[3]));
             }
             else
