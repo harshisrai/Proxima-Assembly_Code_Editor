@@ -23,6 +23,10 @@ struct Instruction {
     int rs1;
     int rs2;
     int32_t imm;
+    bool needs_EX_to_EX = false;
+    bool needs_MEM_to_EX = false;
+    bool needs_MEM_to_MEM = false;
+    bool stall = false;
    
 };
 
@@ -37,8 +41,9 @@ bool needsForwarding(const Instruction& curr, const Instruction& prev,string in)
 }
 
 bool loadUseHazard(const Instruction& curr, const Instruction& prev) {
+   
     
-    return (prev.op == "LW" ||prev.op=="LH" && prev.op=="LB") &&
+    return (prev.op == "LW" ||prev.op=="LH" || prev.op=="LB") &&
            ((curr.rs1 == prev.rd && curr.needs_rs1_in=="EX") || (curr.rs2 == prev.rd && curr.needs_rs2_in=="EX"));
 }
 
@@ -98,19 +103,49 @@ vector<int> RegFile={0,0,2147483612,268435456,0,0,0,0,0,0,1,2147483612,0,0,0,0,0
 const int regNums[32] = {
     0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31};
 
-Instruction decodeRType(uint32_t instruction) {
+Instruction decodeRType(uint32_t instruction , vector<PipelineStage> &pipeline) {
     uint32_t opcode = instruction & 0x7F;
     int rd = (instruction >> 7) & 0x1F;
     uint32_t funct3 = (instruction >> 12) & 0x7;
     int rs1 = (instruction >> 15) & 0x1F;
     int rs2 = (instruction >> 20) & 0x1F;
     uint32_t funct7 = (instruction >> 25) & 0x7F;
+    Instruction curr;
     string key = bitset<7>(opcode).to_string() + bitset<3>(funct3).to_string() + bitset<7>(funct7).to_string();
-    if (rTypeInstructions.find(key) != rTypeInstructions.end()) return {instruction,"EX","EX",rTypeInstructions[key], regNums[rd], regNums[rs1], regNums[rs2]};
+    if (rTypeInstructions.find(key) != rTypeInstructions.end()) {
+        // {instruction,"EX","EX",rTypeInstructions[key], regNums[rd], regNums[rs1], regNums[rs2]};
+        curr.mc = instruction;
+        curr.needs_rs1_in = "EX";curr.needs_rs2_in = "EX";curr.op = rTypeInstructions[key],curr.rd = regNums[rd],curr.rs1 = regNums[rs1],curr.rs2 = regNums[rs2],curr.imm = 0;
+        bool stall = false;
+        if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr)) {
+           
+            
+            curr.stall = true;
+        } 
+        //Execute from previous instruction
+        else {if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr,"EX")) {
+            curr.needs_EX_to_EX = true;
+        }
+        //Memory from previous instruction
+        if(pipeline[2].instr && needsForwarding(curr,*pipeline[2].instr,"MEM")){
+        curr.needs_MEM_to_MEM = true;
+             
+        }
+        //Execute from prev to prev instruction
+         if (pipeline[3].instr && needsForwarding(curr, *pipeline[3].instr,"EX") ) {
+         curr.needs_MEM_to_EX = true;
+            
+        }}
+    
+    return curr;
+    
+    
+    
+    }
     return {instruction,"Unknown"};
 }
 
-Instruction decodeIType(uint32_t instruction) {
+Instruction decodeIType(uint32_t instruction , vector<PipelineStage> &pipeline) {
     uint32_t opcode = instruction & 0x7F;
     int rd = (instruction >> 7) & 0x1F;
     uint32_t funct3 = (instruction >> 12) & 0x7;
@@ -118,11 +153,40 @@ Instruction decodeIType(uint32_t instruction) {
     int32_t imm = (int32_t)(instruction >> 20);
     if (imm & 0x800) imm |= 0xFFFFF000;
     string key = bitset<7>(opcode).to_string() + bitset<3>(funct3).to_string();
-    if (iTypeInstructions.find(key) != iTypeInstructions.end()) return {instruction,"EX","",iTypeInstructions[key], regNums[rd], regNums[rs1], imm};
-    return {instruction,"Unknown"};
-}
+    Instruction curr;
+     if (iTypeInstructions.find(key) != iTypeInstructions.end()) {
+    // curr = {instruction,"EX","",iTypeInstructions[key], regNums[rd], regNums[rs1], imm
+    curr.mc = instruction;curr.needs_rs1_in = "EX";curr.needs_rs2_in = "";curr.op=iTypeInstructions[key];curr.rd = regNums[rd];curr.rs1 = regNums[rs1];curr.rs2 = -1;curr.imm = imm;
+    bool stall = false;
+    if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr)) {
+      
+        curr.stall = true;
+    } 
+    //Execute from previous instruction
+    else {if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr,"EX")) {
+      curr.needs_EX_to_EX = true;
+    }
+    //Memory from previous instruction
+    if(pipeline[2].instr && needsForwarding(curr,*pipeline[2].instr,"MEM")){
+        curr.needs_MEM_to_MEM = true;
+    }
+    //Execute from prev to prev instruction
+     if (pipeline[3].instr && needsForwarding(curr, *pipeline[3].instr,"EX") ) {
+        curr.needs_MEM_to_EX = true;
+        
+    }}
+return curr;
 
-Instruction decodeSType(uint32_t instruction) {
+
+}
+    
+return {instruction,"Unknown"};
+
+}
+    
+
+
+Instruction decodeSType(uint32_t instruction , vector<PipelineStage> &pipeline) {
     uint32_t opcode = instruction & 0x7F;
     uint32_t imm4_0 = (instruction >> 7) & 0x1F;
     uint32_t funct3 = (instruction >> 12) & 0x7;
@@ -133,12 +197,37 @@ Instruction decodeSType(uint32_t instruction) {
     int32_t imm = (imm11_5 << 5) | imm4_0;
     if (imm & (1 << 11)) imm |= 0xFFFFF000;
     string key = bitset<7>(opcode).to_string() + bitset<3>(funct3).to_string();
+    Instruction curr;
    
-    if (sTypeInstructions.find(key) != sTypeInstructions.end()) return {instruction,"MEM","EX",sTypeInstructions[key],-1, regNums[rs2], regNums[rs1], imm};
+    if (sTypeInstructions.find(key) != sTypeInstructions.end()) {
+        curr={instruction,"MEM","EX",sTypeInstructions[key],-1, regNums[rs2], regNums[rs1], imm};
+        bool stall = false;
+        if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr)) {
+          
+            curr.stall = true;
+            
+        } 
+        //Execute from previous instruction
+        else {if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr,"EX")) {
+          curr.needs_EX_to_EX = true;
+        }
+        //Memory from previous instruction
+        if(pipeline[2].instr && needsForwarding(curr,*pipeline[2].instr,"MEM")){
+            curr.needs_MEM_to_MEM = true;
+        }
+        //Execute from prev to prev instruction
+         if (pipeline[3].instr && needsForwarding(curr, *pipeline[3].instr,"EX") ) {
+            curr.needs_MEM_to_EX = true;
+            
+        }}
+        return curr;
+    
+    
+    }
     return {instruction,"Unknown"};
 }
 
-Instruction decodeSBType(uint32_t instruction) {
+Instruction decodeSBType(uint32_t instruction , vector<PipelineStage> &pipeline) {
     uint32_t opcode = instruction & 0x7F;
     uint32_t imm11 = (instruction >> 7) & 0x1;
     uint32_t imm4_1 = (instruction >> 8) & 0xF;
@@ -150,20 +239,66 @@ Instruction decodeSBType(uint32_t instruction) {
     int32_t imm = (imm12 << 12) | (imm11 << 11) | (imm10_5 << 5) | (imm4_1 << 1);
     if (imm & (1 << 12)) imm |= 0xFFFFE000;
     string key = bitset<7>(opcode).to_string() + bitset<3>(funct3).to_string();
-    if (sbTypeInstructions.find(key) != sbTypeInstructions.end()) return {instruction,"EX","EX",sbTypeInstructions[key], regNums[rs1], regNums[rs2], imm};
+    Instruction curr;
+    if (sbTypeInstructions.find(key) != sbTypeInstructions.end()) {
+        curr = {instruction,"EX","EX",sbTypeInstructions[key], regNums[rs1], regNums[rs2], imm};
+        bool stall = false;
+        if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr)) {
+          
+            curr.stall = true;
+        } 
+        //Execute from previous instruction
+        else {if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr,"EX")) {
+          curr.needs_EX_to_EX = true;
+        }
+        //Memory from previous instruction
+        if(pipeline[2].instr && needsForwarding(curr,*pipeline[2].instr,"MEM")){
+            curr.needs_MEM_to_MEM = true;
+        }
+        //Execute from prev to prev instruction
+         if (pipeline[3].instr && needsForwarding(curr, *pipeline[3].instr,"EX") ) {
+            curr.needs_MEM_to_EX = true;
+            
+        }}
+        return curr;
+    
+    
+    }
     return {instruction,"Unknown"};
 }
 
-Instruction decodeUType(uint32_t instruction) {
+Instruction decodeUType(uint32_t instruction , vector<PipelineStage> &pipeline) {
     uint32_t opcode = instruction & 0x7F;
     int rd = (instruction >> 7) & 0x1F;
     int32_t imm = (instruction >> 12);
     string key = bitset<7>(opcode).to_string();
-    if (uTypeInstructions.find(key) != uTypeInstructions.end()) return {instruction,"","",uTypeInstructions[key], regNums[rd], imm};
+    Instruction curr;
+    if (uTypeInstructions.find(key) != uTypeInstructions.end()) {
+        curr = {instruction,"","",uTypeInstructions[key], regNums[rd], imm};
+        bool stall = false;
+        if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr)) {
+          
+            curr.stall = true;
+        } 
+        //Execute from previous instruction
+        else {if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr,"EX")) {
+          curr.needs_EX_to_EX = true;
+        }
+        //Memory from previous instruction
+        if(pipeline[2].instr && needsForwarding(curr,*pipeline[2].instr,"MEM")){
+            curr.needs_MEM_to_MEM = true;
+        }
+        //Execute from prev to prev instruction
+         if (pipeline[3].instr && needsForwarding(curr, *pipeline[3].instr,"EX") ) {
+            curr.needs_MEM_to_EX = true;
+            
+        }}
+    return curr;
+    }
     return {instruction,"Unknown"};
 }
 
-Instruction decodeUJType(uint32_t instruction) {
+Instruction decodeUJType(uint32_t instruction , vector<PipelineStage> &pipeline) {
     uint32_t opcode = instruction & 0x7F;
     int rd = (instruction >> 7) & 0x1F;
     uint32_t imm19_12 = (instruction >> 12) & 0xFF;
@@ -173,115 +308,122 @@ Instruction decodeUJType(uint32_t instruction) {
     int32_t imm = (imm20 << 20) | (imm19_12 << 12) | (imm11 << 11) | (imm10_1 << 1);
     if (imm & (1 << 20)) imm |= 0xFFE00000;
     string key = bitset<7>(opcode).to_string();
-    if (ujTypeInstructions.find(key) != ujTypeInstructions.end()) return {instruction,"","",ujTypeInstructions[key], regNums[rd], imm};
+    Instruction curr;
+    if (ujTypeInstructions.find(key) != ujTypeInstructions.end()) {
+        curr = {instruction,"","",ujTypeInstructions[key], regNums[rd], imm};
+        bool stall = false;
+        if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr)) {
+          
+            curr.stall = true;
+        } 
+        //Execute from previous instruction
+        else {if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr,"EX")) {
+          curr.needs_EX_to_EX = true;
+        }
+        //Memory from previous instruction
+        if(pipeline[2].instr && needsForwarding(curr,*pipeline[2].instr,"MEM")){
+            curr.needs_MEM_to_MEM = true;
+        }
+        //Execute from prev to prev instruction
+         if (pipeline[3].instr && needsForwarding(curr, *pipeline[3].instr,"EX") ) {
+            curr.needs_MEM_to_EX = true;
+            
+        }}return curr;
+    }
     return {instruction,"Unknown"};
 }
 
-Instruction decodeInstruction(uint32_t instr) {
+Instruction decodeInstruction(uint32_t instr,vector<PipelineStage> &pipeline){
     uint32_t opcode = instr & 0x7F;
     switch (opcode) {
-        case 0x33: return decodeRType(instr);
+        case 0x33: return decodeRType(instr , pipeline);
         case 0x13:
         case 0x03:
-        case 0x67: return decodeIType(instr);
-        case 0x23: return decodeSType(instr);
-        case 0x63: return decodeSBType(instr);
+        case 0x67: return decodeIType(instr , pipeline);
+        case 0x23: return decodeSType(instr , pipeline);
+        case 0x63: return decodeSBType(instr , pipeline);
         case 0x37:
-        case 0x17: return decodeUType(instr);
-        case 0x6F: return decodeUJType(instr);
+        case 0x17: return decodeUType(instr , pipeline);
+        case 0x6F: return decodeUJType(instr , pipeline);
         default: return {instr,"Unknown"};
     }
 }
 
-vector<Instruction> loadProgram(const string& filename) {
-    vector<Instruction> program;
+vector<uint32_t> loadProgram(const string& filename) {
+    vector<uint32_t> program;
     ifstream infile(filename);
     string line;
     while (getline(infile, line)) {
         if (line.empty()) continue;
         uint32_t instr = stoul(line, nullptr, 16);
-        program.push_back(decodeInstruction(instr));
+        program.push_back(instr);
     }
     return program;
 }
 
 int main() {
-    vector<Instruction> program = loadProgram("instructions.txt");
+    vector<uint32_t> program = loadProgram("instructions.txt");
 
     vector<PipelineStage> pipeline(5); // IF, ID, EX, MEM, WB
     int cycle = 0, pc = 0;
-    Instruction nop;
+    Instruction nop; // represents a bubble (NOP)
 
     cout << "Pipeline simulation with forwarding and correct timing:\n\n";
 
     while (pc < program.size() || any_of(pipeline.begin(), pipeline.end(), [](auto& st){ return st.instr != nullptr; })) {
         cout << "Cycle " << ++cycle << ":\n";
 
-        // Print WB stage
-        if (pipeline[4].instr) cout << "  WriteBack:  " <<"0x"<<setfill('0')<<setw(8)<<hex<<pipeline[4].instr->mc << "\n";
+        // --- Print Pipeline Stages ---
+        if (pipeline[4].instr) cout << "  WriteBack:  0x" << setfill('0') << setw(8) << hex << pipeline[4].instr->mc << "\n";
+        if (pipeline[3].instr) cout << "  MemAccess:  0x" << setfill('0') << setw(8) << hex << pipeline[3].instr->mc << "\n";
+        if (pipeline[2].instr) cout << "  Execute:    0x" << setfill('0') << setw(8) << hex << pipeline[2].instr->mc << "\n";
 
-        // Print MEM stage
-        if (pipeline[3].instr) cout << "  MemAccess: " <<"0x"<<setfill('0')<<setw(8)<<hex<<pipeline[3].instr->mc << "\n";
-
-        // Print EX stage
-        if (pipeline[2].instr) {cout << "  Execute:  " <<"0x"<<setfill('0')<<setw(8)<<hex<<pipeline[2].instr->mc<<endl;
-            Instruction& curr = *pipeline[2].instr;
-           
-            if(pipeline[3].instr && needsForwarding(curr,*pipeline[3].instr,"MEM")){
-                cout<<"FORWARD From MEM/WB "<<endl;
-            }
-        
-        
-        
-        }
-
-        // Check hazard/stall/forwarding in ID before shifting pipeline
+        // Decode stage: inspect current instr and decide stall
         bool stall = false;
         if (pipeline[1].instr) {
             Instruction& curr = *pipeline[1].instr;
-            cout << "  Decode:  " <<"0x"<<setfill('0')<<setw(8)<<hex<<curr.mc;
-
-            // Check load-use hazard with EX stage (before shifting)
-            if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr)) {
-                cout << "  (STALL due to load-use hazard) ";
-                stall = true;
-            } 
-            else {if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr,"EX")) {
-                cout << "  (FORWARD from EX/MEM) ";
-            }
-             if (pipeline[3].instr && needsForwarding(curr, *pipeline[3].instr,"EX") ) {
-                cout << "  (FORWARD from MEM/WB) ";
-            }}
-            // else if (pipeline[4].instr && needsForwarding(curr, *pipeline[4].instr)) {
-            //     cout << "  (FORWARD from WB)";
-            // }
+            stall = curr.stall;
+            cout << "  Decode:     0x" << setfill('0') << setw(8) << hex << curr.mc;
+            if (curr.needs_EX_to_EX)   cout << "  [WILL NEED FORWARDING from EX/MEM]";
+            if (curr.needs_MEM_to_EX)  cout << "  [WILL NEED FORWARDING from MEM/WB]";
+            if (curr.needs_MEM_to_MEM) cout << "  [WILL NEED FORWARDING from MEM/WB]";
             cout << "\n";
         }
 
+        // Fetch Stage (just print here)
         if (pc < program.size()) {
-            cout << "  Fetch:  " <<"0x"<<setfill('0')<<setw(8)<<hex<< program[pc].mc << "\n";
+            cout << "  Fetch:      0x" << setfill('0') << setw(8) << hex << program[pc] << "\n";
         }
 
-        // Shift pipeline stages (AFTER checking hazards)
-        pipeline[4] = pipeline[3];
-        pipeline[3] = pipeline[2];
+        // --- Pipeline Shifting (in reverse order) ---
+        pipeline[4] = pipeline[3]; // MEM → WB
+        pipeline[3] = pipeline[2]; // EX → MEM
 
-        if (!stall) {
-            pipeline[2] = pipeline[1];  // ID → EX
+        if (stall) {
+            pipeline[2].instr = &nop; // Insert bubble into EX
+            cout<<"STALLING THE PIPELINE!!! "<<endl;
+            if (pipeline[1].instr) {
+                Instruction redecoded = decodeInstruction(pipeline[1].instr->mc, pipeline);
+                *pipeline[1].instr = redecoded;
+            }
+        } else {
+            pipeline[2] = pipeline[1]; // ID → EX
+
             if (pc < program.size()) {
-                pipeline[1].instr = &program[pc++]; // IF → ID
+                Instruction decoded = decodeInstruction(program[pc], pipeline); // hazard check inside
+                pipeline[1].instr = new Instruction(decoded); // assign to ID stage
+                pc++; // increment only if no stall
             } else {
                 pipeline[1].instr = nullptr;
             }
-        } else {
-            pipeline[2].instr = &nop; // Inject bubble
         }
 
-        pipeline[0].instr = nullptr; // IF not used here
+        pipeline[0].instr = nullptr; // IF stage unused
 
         cout << "\n";
     }
 
     return 0;
 }
+
 
