@@ -16,6 +16,8 @@ int RY = 0x0;
 
 struct Instruction {
     uint32_t mc;
+    string needs_rs1_in;
+    string needs_rs2_in;
     string op;
     int rd;
     int rs1;
@@ -28,14 +30,16 @@ struct PipelineStage {
     Instruction* instr = nullptr;
 };
 
-bool needsForwarding(const Instruction& curr, const Instruction& prev) {
+bool needsForwarding(const Instruction& curr, const Instruction& prev,string in) {
     if (prev.op == "NOP" || prev.rd == -1) return false;
-    return (curr.rs1 == prev.rd || curr.rs2 == prev.rd);
+    
+    return ((curr.rs1 == prev.rd && curr.needs_rs1_in==in) || (curr.rs2 == prev.rd && curr.needs_rs2_in==in));
 }
 
 bool loadUseHazard(const Instruction& curr, const Instruction& prev) {
-    return (prev.op == "LW") &&
-           (curr.rs1 == prev.rd || curr.rs2 == prev.rd);
+    
+    return (prev.op == "LW" ||prev.op=="LH" && prev.op=="LB") &&
+           ((curr.rs1 == prev.rd && curr.needs_rs1_in=="EX") || (curr.rs2 == prev.rd && curr.needs_rs2_in=="EX"));
 }
 
 unordered_map<string, string> rTypeInstructions = {
@@ -102,7 +106,7 @@ Instruction decodeRType(uint32_t instruction) {
     int rs2 = (instruction >> 20) & 0x1F;
     uint32_t funct7 = (instruction >> 25) & 0x7F;
     string key = bitset<7>(opcode).to_string() + bitset<3>(funct3).to_string() + bitset<7>(funct7).to_string();
-    if (rTypeInstructions.find(key) != rTypeInstructions.end()) return {instruction,rTypeInstructions[key], regNums[rd], regNums[rs1], regNums[rs2]};
+    if (rTypeInstructions.find(key) != rTypeInstructions.end()) return {instruction,"EX","EX",rTypeInstructions[key], regNums[rd], regNums[rs1], regNums[rs2]};
     return {instruction,"Unknown"};
 }
 
@@ -114,7 +118,7 @@ Instruction decodeIType(uint32_t instruction) {
     int32_t imm = (int32_t)(instruction >> 20);
     if (imm & 0x800) imm |= 0xFFFFF000;
     string key = bitset<7>(opcode).to_string() + bitset<3>(funct3).to_string();
-    if (iTypeInstructions.find(key) != iTypeInstructions.end()) return {instruction,iTypeInstructions[key], regNums[rd], regNums[rs1], imm};
+    if (iTypeInstructions.find(key) != iTypeInstructions.end()) return {instruction,"EX","",iTypeInstructions[key], regNums[rd], regNums[rs1], imm};
     return {instruction,"Unknown"};
 }
 
@@ -129,7 +133,8 @@ Instruction decodeSType(uint32_t instruction) {
     int32_t imm = (imm11_5 << 5) | imm4_0;
     if (imm & (1 << 11)) imm |= 0xFFFFF000;
     string key = bitset<7>(opcode).to_string() + bitset<3>(funct3).to_string();
-    if (sTypeInstructions.find(key) != sTypeInstructions.end()) return {instruction,sTypeInstructions[key], regNums[rs2], regNums[rs1], imm};
+   
+    if (sTypeInstructions.find(key) != sTypeInstructions.end()) return {instruction,"MEM","EX",sTypeInstructions[key],-1, regNums[rs2], regNums[rs1], imm};
     return {instruction,"Unknown"};
 }
 
@@ -145,7 +150,7 @@ Instruction decodeSBType(uint32_t instruction) {
     int32_t imm = (imm12 << 12) | (imm11 << 11) | (imm10_5 << 5) | (imm4_1 << 1);
     if (imm & (1 << 12)) imm |= 0xFFFFE000;
     string key = bitset<7>(opcode).to_string() + bitset<3>(funct3).to_string();
-    if (sbTypeInstructions.find(key) != sbTypeInstructions.end()) return {instruction,sbTypeInstructions[key], regNums[rs1], regNums[rs2], imm};
+    if (sbTypeInstructions.find(key) != sbTypeInstructions.end()) return {instruction,"EX","EX",sbTypeInstructions[key], regNums[rs1], regNums[rs2], imm};
     return {instruction,"Unknown"};
 }
 
@@ -154,7 +159,7 @@ Instruction decodeUType(uint32_t instruction) {
     int rd = (instruction >> 7) & 0x1F;
     int32_t imm = (instruction >> 12);
     string key = bitset<7>(opcode).to_string();
-    if (uTypeInstructions.find(key) != uTypeInstructions.end()) return {instruction,uTypeInstructions[key], regNums[rd], imm};
+    if (uTypeInstructions.find(key) != uTypeInstructions.end()) return {instruction,"","",uTypeInstructions[key], regNums[rd], imm};
     return {instruction,"Unknown"};
 }
 
@@ -168,7 +173,7 @@ Instruction decodeUJType(uint32_t instruction) {
     int32_t imm = (imm20 << 20) | (imm19_12 << 12) | (imm11 << 11) | (imm10_1 << 1);
     if (imm & (1 << 20)) imm |= 0xFFE00000;
     string key = bitset<7>(opcode).to_string();
-    if (ujTypeInstructions.find(key) != ujTypeInstructions.end()) return {instruction,ujTypeInstructions[key], regNums[rd], imm};
+    if (ujTypeInstructions.find(key) != ujTypeInstructions.end()) return {instruction,"","",ujTypeInstructions[key], regNums[rd], imm};
     return {instruction,"Unknown"};
 }
 
@@ -219,7 +224,16 @@ int main() {
         if (pipeline[3].instr) cout << "  MemAccess: " <<"0x"<<setfill('0')<<setw(8)<<hex<<pipeline[3].instr->mc << "\n";
 
         // Print EX stage
-        if (pipeline[2].instr) cout << "  Execute:  " <<"0x"<<setfill('0')<<setw(8)<<hex<<pipeline[2].instr->mc << "\n";
+        if (pipeline[2].instr) {cout << "  Execute:  " <<"0x"<<setfill('0')<<setw(8)<<hex<<pipeline[2].instr->mc<<endl;
+            Instruction& curr = *pipeline[2].instr;
+           
+            if(pipeline[3].instr && needsForwarding(curr,*pipeline[3].instr,"MEM")){
+                cout<<"FORWARD From MEM/WB "<<endl;
+            }
+        
+        
+        
+        }
 
         // Check hazard/stall/forwarding in ID before shifting pipeline
         bool stall = false;
@@ -229,18 +243,18 @@ int main() {
 
             // Check load-use hazard with EX stage (before shifting)
             if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr)) {
-                cout << "  (STALL due to load-use hazard)";
+                cout << "  (STALL due to load-use hazard) ";
                 stall = true;
             } 
-            else if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr)) {
-                cout << "  (FORWARD from EX/MEM)";
+            else {if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr,"EX")) {
+                cout << "  (FORWARD from EX/MEM) ";
             }
-            else if (pipeline[3].instr && needsForwarding(curr, *pipeline[3].instr)) {
-                cout << "  (FORWARD from MEM/WB)";
-            }
-            else if (pipeline[4].instr && needsForwarding(curr, *pipeline[4].instr)) {
-                cout << "  (FORWARD from WB)";
-            }
+             if (pipeline[3].instr && needsForwarding(curr, *pipeline[3].instr,"EX") ) {
+                cout << "  (FORWARD from MEM/WB) ";
+            }}
+            // else if (pipeline[4].instr && needsForwarding(curr, *pipeline[4].instr)) {
+            //     cout << "  (FORWARD from WB)";
+            // }
             cout << "\n";
         }
 
