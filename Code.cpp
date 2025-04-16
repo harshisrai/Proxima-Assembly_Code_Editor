@@ -14,8 +14,58 @@ uint32_t global_pc = 0x0;
 int RM = 0x0;
 int RZ = 0x0;
 int RY = 0x0;
-int EX_MEM,MEM_WB;
-int alu_input1 = 0,alu_input2 = 0,alu_signal;
+
+struct IF_ID
+{
+    uint32_t pc = global_pc;
+    uint32_t instruction;
+};
+
+struct ID_EX
+{
+    int alu_input1, alu_input2, rd;
+    int32_t imm;
+    int rs2;
+    int alu_signal;
+    bool rs1_needs_EX_to_EX = false;  // Needed in execute stage
+    bool rs2_needs_EX_to_EX = false;  // needed in execute stage
+    bool rs1_needs_MEM_to_EX = false; // needed in execute stage
+    bool rs2_needs_MEM_to_EX = false; // needed in execute stage
+    bool rs1_needs_MEM_to_MEM = false;
+    bool rs2_needs_MEM_to_MEM = false;
+    bool stall = false;               // needed in execute stage
+    bool needs_mem = false;           // needed in memory stage
+    bool write = false, read = false; // Memory signals
+    int blocks;                       // lb,lh,lw,sb,sh,sw
+    bool needs_writeback = true;
+};
+
+struct EX_MEM
+{
+    int rs2; // needed for store instructions
+    int alu_output;
+    int rd;
+    bool needs_mem = false; // to be passed on from ID_EX
+    bool write, read;
+    bool needs_writeback = true; // needed in write back stage
+    int blocks;
+    bool rs1_needs_MEM_to_MEM = false;
+    bool rs2_needs_MEM_to_MEM = false;
+};
+
+struct MEM_WB
+{
+    int mem_output; // In case read from memory
+    bool needs_writeback = true;
+    int rd;
+};
+ID_EX default_buffer2;
+EX_MEM default_buffer3;
+MEM_WB default_buffer4;
+
+ID_EX buffer2;
+EX_MEM buffer3;
+MEM_WB buffer4;
 
 struct Instruction
 {
@@ -29,31 +79,29 @@ struct Instruction
     int rs1;
     int rs2;
     int32_t imm;
-    bool rs1_needs_EX_to_EX = false;
-    bool rs2_needs_EX_to_EX = false;
-    bool rs1_needs_MEM_to_EX = false;
-    bool rs2_needs_MEM_to_EX = false;
-    bool rs1_needs_MEM_to_MEM = false;
-    bool rs2_needs_MEM_to_MEM = false;
-    bool stall = false;
-    
-    
-    bool dependent_rs1 = false,dependent_rs2 = false;
+
+    bool dependent_rs1 = false, dependent_rs2 = false;
 };
 
 struct PipelineStage
 {
-    Instruction *instr = nullptr;};
+    Instruction *instr = nullptr;
+};
 
-bool needsForwarding( Instruction &curr,  Instruction &prev, string in)
+unordered_map<uint32_t, int> MainMemory;
+
+bool needsForwarding(Instruction &curr, Instruction &prev, string in)
 {
     if (prev.op == "NOP" || prev.rd == -1)
         return false;
-        if((curr.rs1 == prev.rd && curr.needs_rs1_in == in)){
-            curr.dependent_rs1 = true;
-            return true;}
+    if ((curr.rs1 == prev.rd && curr.needs_rs1_in == in))
+    {
+        curr.dependent_rs1 = true;
+        return true;
+    }
 
-    if((curr.rs2 == prev.rd && curr.needs_rs2_in == in)){
+    if ((curr.rs2 == prev.rd && curr.needs_rs2_in == in))
+    {
         curr.dependent_rs2 = true;
         return true;
     }
@@ -184,6 +232,8 @@ const int regNums[32] = {
 
 Instruction decodeRType(uint32_t instruction, vector<PipelineStage> &pipeline)
 {
+    // cout<<&operationMap<<endl;
+    // cout<<operationMap["SUB"]<<" "<<operationMap["OR"]<<" "<<operationMap["BEQ"]<<endl;
     uint32_t opcode = instruction & 0x7F;
     int rd = (instruction >> 7) & 0x1F;
     uint32_t funct3 = (instruction >> 12) & 0x7;
@@ -199,45 +249,64 @@ Instruction decodeRType(uint32_t instruction, vector<PipelineStage> &pipeline)
         curr.needs_rs1_in = "EX";
         curr.needs_rs2_in = "EX";
         curr.op = rTypeInstructions[key];
-        alu_signal = operationMap[curr.op];
+        buffer2.alu_signal = operationMap[curr.op];
+        cout << "Operation " << curr.op << " " << buffer2.alu_signal << endl;
         curr.rd = regNums[rd];
         curr.rs1 = regNums[rs1];
         curr.rs2 = regNums[rs2];
         curr.imm = 0;
-        alu_input1 = RegFile[curr.rs1];
-        alu_input2 = RegFile[curr.rs2];
+        buffer2.alu_input1 = RegFile[curr.rs1];
+        buffer2.alu_input2 = RegFile[curr.rs2];
+        buffer2.rd = curr.rd;
+        buffer2.rs2 = curr.rs2;
+
         bool stall = false;
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
 
-            curr.stall = true;
+            buffer2.stall = true;
         }
         // Execute from previous instruction
         else
         {
             if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr, "EX"))
             {
-                curr.dependent_rs1? curr.rs1_needs_EX_to_EX = true:curr.rs2_needs_EX_to_EX = true;
-                curr.dependent_rs1?curr.dependent_rs1 = false:curr.dependent_rs2 = false;
-                
+                curr.dependent_rs1 ? buffer2.rs1_needs_EX_to_EX = true : buffer2.rs2_needs_EX_to_EX = true;
+                curr.dependent_rs1 ? curr.dependent_rs1 = false : curr.dependent_rs2 = false;
             }
             // Memory from previous instruction
             if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr, "MEM"))
             {
-                curr.dependent_rs1? curr.rs1_needs_MEM_to_MEM = true:curr.rs2_needs_MEM_to_MEM = true;
-                curr.dependent_rs1?curr.dependent_rs1 = false:curr.dependent_rs2 = false;
+                curr.dependent_rs1 ? buffer2.rs1_needs_MEM_to_MEM = true : buffer2.rs2_needs_MEM_to_MEM = true;
+                curr.dependent_rs1 ? curr.dependent_rs1 = false : curr.dependent_rs2 = false;
             }
             // Execute from prev to prev instruction
             if (pipeline[3].instr && needsForwarding(curr, *pipeline[3].instr, "EX"))
             {
-                curr.dependent_rs1? curr.rs1_needs_MEM_to_EX = true:curr.rs2_needs_MEM_to_EX = true;
-                curr.dependent_rs1?curr.dependent_rs1 = false:curr.dependent_rs2 = false;
+                curr.dependent_rs1 ? buffer2.rs1_needs_MEM_to_EX = true : buffer2.rs2_needs_MEM_to_EX = true;
+                curr.dependent_rs1 ? curr.dependent_rs1 = false : curr.dependent_rs2 = false;
             }
         }
-        if(curr.rs1_needs_EX_to_EX)alu_input1 = EX_MEM;
-  if(curr.rs2_needs_EX_to_EX)alu_input2 = EX_MEM;
-  if(curr.rs1_needs_MEM_to_EX)alu_input1 = MEM_WB;
-  if(curr.rs2_needs_MEM_to_EX)alu_input2 = MEM_WB;
+        if (buffer2.rs1_needs_EX_to_EX)
+        {
+            cout << " RS1 NEEDS FORWARDING FROM EX" << endl;
+            buffer2.alu_input1 = buffer3.alu_output;
+        }
+        if (buffer2.rs2_needs_EX_to_EX)
+        {
+            cout << " RS2 NEEDS FORWARDING FROM EX" << endl;
+            buffer2.alu_input2 = buffer3.alu_output;
+        }
+        if (buffer2.rs1_needs_MEM_to_EX)
+        {
+            cout << " RS1 NEEDS FORWARDING FROM MEM" << endl;
+            buffer2.alu_input1 = buffer4.mem_output;
+        }
+        if (buffer2.rs2_needs_MEM_to_EX)
+        {
+            cout << " RS2 NEEDS FORWARDING FROM MEM" << endl;
+            buffer2.alu_input2 = buffer4.mem_output;
+        }
 
         return curr;
     }
@@ -246,6 +315,8 @@ Instruction decodeRType(uint32_t instruction, vector<PipelineStage> &pipeline)
 
 Instruction decodeIType(uint32_t instruction, vector<PipelineStage> &pipeline)
 {
+    // cout<<&operationMap<<endl;
+    // cout<<operationMap["SUB"]<<" "<<operationMap["OR"]<<" "<<operationMap["BEQ"]<<endl;
     uint32_t opcode = instruction & 0x7F;
     int rd = (instruction >> 7) & 0x1F;
     uint32_t funct3 = (instruction >> 12) & 0x7;
@@ -262,41 +333,55 @@ Instruction decodeIType(uint32_t instruction, vector<PipelineStage> &pipeline)
         curr.needs_rs1_in = "EX";
         curr.needs_rs2_in = "";
         curr.op = iTypeInstructions[key];
-        alu_signal = operationMap[curr.op];
+        buffer2.alu_signal = operationMap[curr.op];
+        cout << "Operation " << curr.op << " " << buffer2.alu_signal << endl;
         curr.rd = regNums[rd];
+        buffer2.rd = curr.rd;
         curr.rs1 = regNums[rs1];
         curr.rs2 = -1;
+        buffer2.rs2 = curr.rs2;
         curr.imm = imm;
-        bool stall = false;
-        alu_input1 = RegFile[curr.rs1];
-        alu_input2 = curr.imm;
+        buffer2.stall = false;
+        buffer2.alu_input1 = RegFile[curr.rs1];
+        buffer2.alu_input2 = curr.imm;
+        if (opcode == 0x03)
+        {
+            buffer2.needs_mem = true;
+            buffer2.read = true;
+            buffer2.write = false;
+            buffer2.blocks = 1 << funct3;
+        }
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
 
-            curr.stall = true;
+            buffer2.stall = true;
         }
         // Execute from previous instruction
         else
         {
             if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr, "EX"))
             {
-                curr.dependent_rs1? curr.rs1_needs_EX_to_EX = true:curr.rs2_needs_EX_to_EX = true;
+                curr.dependent_rs1 ? buffer2.rs1_needs_EX_to_EX = true : buffer2.rs2_needs_EX_to_EX = true;
             }
             // Memory from previous instruction
             if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr, "MEM"))
             {
-                curr.dependent_rs1? curr.rs1_needs_MEM_to_MEM = true:curr.rs2_needs_MEM_to_MEM = true;
+                curr.dependent_rs1 ? buffer2.rs1_needs_MEM_to_MEM = true : buffer2.rs2_needs_MEM_to_MEM = true;
             }
             // Execute from prev to prev instruction
             if (pipeline[3].instr && needsForwarding(curr, *pipeline[3].instr, "EX"))
             {
-                curr.dependent_rs1? curr.rs1_needs_MEM_to_EX = true:curr.rs2_needs_MEM_to_EX = true;
+                curr.dependent_rs1 ? buffer2.rs1_needs_MEM_to_EX = true : buffer2.rs2_needs_MEM_to_EX = true;
             }
         }
-        if(curr.rs1_needs_EX_to_EX)alu_input1 = EX_MEM;
-        if(curr.rs2_needs_EX_to_EX)alu_input2 = EX_MEM;
-        if(curr.rs1_needs_MEM_to_EX)alu_input1 = MEM_WB;
-        if(curr.rs2_needs_MEM_to_EX)alu_input2 = MEM_WB;
+        if (buffer2.rs1_needs_EX_to_EX)
+            buffer2.alu_input1 = buffer3.alu_output;
+        if (buffer2.rs2_needs_EX_to_EX)
+            buffer2.alu_input2 = buffer3.alu_output;
+        if (buffer2.rs1_needs_MEM_to_EX)
+            buffer2.alu_input1 = buffer4.mem_output;
+        if (buffer2.rs2_needs_MEM_to_EX)
+            buffer2.alu_input2 = buffer4.mem_output;
         return curr;
     }
 
@@ -310,6 +395,7 @@ Instruction decodeSType(uint32_t instruction, vector<PipelineStage> &pipeline)
     uint32_t funct3 = (instruction >> 12) & 0x7;
     int rs1 = (instruction >> 15) & 0x1F;
     int rs2 = (instruction >> 20) & 0x1F;
+    buffer2.rs2 = rs2;
     uint32_t imm11_5 = (instruction >> 25) & 0x7F;
     RM = RegFile[rs2];
     int32_t imm = (imm11_5 << 5) | imm4_0;
@@ -320,38 +406,48 @@ Instruction decodeSType(uint32_t instruction, vector<PipelineStage> &pipeline)
 
     if (sTypeInstructions.find(key) != sTypeInstructions.end())
     {
-        curr = {instruction, "MEM", "EX", sTypeInstructions[key], -1, regNums[rs1], regNums[rs2], imm};
-        alu_signal = operationMap[curr.op];
-        alu_input1 = RegFile[curr.rs1];
-        alu_input2 = curr.imm;
+        buffer2.needs_writeback = false;
+        buffer2.needs_mem = true;
+        buffer2.read = false;
+        buffer2.write = true;
+        buffer2.blocks = 1 << funct3;
+        curr = {instruction, "EX", "MEM", sTypeInstructions[key], -1, regNums[rs1], regNums[rs2], imm};
+        buffer2.alu_signal = operationMap[curr.op];
+
+        buffer2.alu_input1 = RegFile[curr.rs1];
+        buffer2.alu_input2 = curr.imm;
         bool stall = false;
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
 
-            curr.stall = true;
+            buffer2.stall = true;
         }
         // Execute from previous instruction
         else
         {
             if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr, "EX"))
             {
-                curr.dependent_rs1? curr.rs1_needs_EX_to_EX = true:curr.rs2_needs_EX_to_EX = true;
+                curr.dependent_rs1 ? buffer2.rs1_needs_EX_to_EX = true : buffer2.rs2_needs_EX_to_EX = true;
             }
             // Memory from previous instruction
             if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr, "MEM"))
             {
-                curr.dependent_rs1? curr.rs1_needs_MEM_to_MEM = true:curr.rs2_needs_MEM_to_MEM = true;
+                curr.dependent_rs1 ? buffer2.rs1_needs_MEM_to_MEM = true : buffer2.rs2_needs_MEM_to_MEM = true;
             }
             // Execute from prev to prev instruction
             if (pipeline[3].instr && needsForwarding(curr, *pipeline[3].instr, "EX"))
             {
-                curr.dependent_rs1? curr.rs1_needs_MEM_to_EX = true:curr.rs2_needs_MEM_to_EX = true;
+                curr.dependent_rs1 ? buffer2.rs1_needs_MEM_to_EX = true : buffer2.rs2_needs_MEM_to_EX = true;
             }
         }
-        if(curr.rs1_needs_EX_to_EX)alu_input1 = EX_MEM;
-        if(curr.rs2_needs_EX_to_EX)alu_input2 = EX_MEM;
-        if(curr.rs1_needs_MEM_to_EX)alu_input1 = MEM_WB;
-        if(curr.rs2_needs_MEM_to_EX)alu_input2 = MEM_WB;
+        if (buffer2.rs1_needs_EX_to_EX)
+            buffer2.alu_input1 = buffer3.alu_output;
+        if (buffer2.rs2_needs_EX_to_EX)
+            buffer2.alu_input2 = buffer3.alu_output;
+        if (buffer2.rs1_needs_MEM_to_EX)
+            buffer2.alu_input1 = buffer4.mem_output;
+        if (buffer2.rs2_needs_MEM_to_EX)
+            buffer2.alu_input2 = buffer4.mem_output;
         return curr;
     }
     return {instruction, "Unknown"};
@@ -365,6 +461,7 @@ Instruction decodeSBType(uint32_t instruction, vector<PipelineStage> &pipeline)
     uint32_t funct3 = (instruction >> 12) & 0x7;
     int rs1 = (instruction >> 15) & 0x1F;
     int rs2 = (instruction >> 20) & 0x1F;
+    buffer2.rs2 = rs2;
     uint32_t imm10_5 = (instruction >> 25) & 0x3F;
     uint32_t imm12 = (instruction >> 31) & 0x1;
     int32_t imm = (imm12 << 12) | (imm11 << 11) | (imm10_5 << 5) | (imm4_1 << 1);
@@ -374,38 +471,44 @@ Instruction decodeSBType(uint32_t instruction, vector<PipelineStage> &pipeline)
     Instruction curr;
     if (sbTypeInstructions.find(key) != sbTypeInstructions.end())
     {
+        buffer2.needs_writeback = false;
         curr = {instruction, "EX", "EX", sbTypeInstructions[key], -1, regNums[rs1], regNums[rs2], imm};
-        alu_signal = operationMap[curr.op];
-        alu_input1 = RegFile[curr.rs1];
-        alu_input2 = RegFile[curr.rs2];
+        buffer2.alu_signal = operationMap[curr.op];
+
+        buffer2.alu_input1 = RegFile[curr.rs1];
+        buffer2.alu_input2 = RegFile[curr.rs2];
         bool stall = false;
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
 
-            curr.stall = true;
+            buffer2.stall = true;
         }
         // Execute from previous instruction
         else
         {
             if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr, "EX"))
             {
-                curr.dependent_rs1? curr.rs1_needs_EX_to_EX = true:curr.rs2_needs_EX_to_EX = true;
+                curr.dependent_rs1 ? buffer2.rs1_needs_EX_to_EX = true : buffer2.rs2_needs_EX_to_EX = true;
             }
             // Memory from previous instruction
             if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr, "MEM"))
             {
-                curr.dependent_rs1? curr.rs1_needs_MEM_to_MEM = true:curr.rs2_needs_MEM_to_MEM = true;
+                curr.dependent_rs1 ? buffer2.rs1_needs_MEM_to_MEM = true : buffer2.rs2_needs_MEM_to_MEM = true;
             }
             // Execute from prev to prev instruction
             if (pipeline[3].instr && needsForwarding(curr, *pipeline[3].instr, "EX"))
             {
-                curr.dependent_rs1? curr.rs1_needs_MEM_to_EX = true:curr.rs2_needs_MEM_to_EX = true;
+                curr.dependent_rs1 ? buffer2.rs1_needs_MEM_to_EX = true : buffer2.rs2_needs_MEM_to_EX = true;
             }
         }
-        if(curr.rs1_needs_EX_to_EX)alu_input1 = EX_MEM;
-        if(curr.rs2_needs_EX_to_EX)alu_input2 = EX_MEM;
-        if(curr.rs1_needs_MEM_to_EX)alu_input1 = MEM_WB;
-        if(curr.rs2_needs_MEM_to_EX)alu_input2 = MEM_WB;
+        if (buffer2.rs1_needs_EX_to_EX)
+            buffer2.alu_input1 = buffer3.alu_output;
+        if (buffer2.rs2_needs_EX_to_EX)
+            buffer2.alu_input2 = buffer3.alu_output;
+        if (buffer2.rs1_needs_MEM_to_EX)
+            buffer2.alu_input1 = buffer4.mem_output;
+        if (buffer2.rs2_needs_MEM_to_EX)
+            buffer2.alu_input2 = buffer4.mem_output;
         return curr;
     }
     return {instruction, "Unknown"};
@@ -421,37 +524,44 @@ Instruction decodeUType(uint32_t instruction, vector<PipelineStage> &pipeline)
     if (uTypeInstructions.find(key) != uTypeInstructions.end())
     {
         curr = {instruction, "", "", uTypeInstructions[key], regNums[rd], -1, -1, imm};
-        alu_signal = operationMap[curr.op];
-        alu_input1 = curr.imm;
-        alu_input2 = global_pc;
+        buffer2.rs2 = curr.rs2;
+        buffer2.alu_signal = operationMap[curr.op];
+
+        buffer2.alu_input1 = curr.imm;
+        buffer2.alu_input2 = global_pc;
+        buffer2.rd = rd;
         bool stall = false;
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
 
-            curr.stall = true;
+            buffer2.stall = true;
         }
         // Execute from previous instruction
         else
         {
             if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr, "EX"))
             {
-                curr.dependent_rs1? curr.rs1_needs_EX_to_EX = true:curr.rs2_needs_EX_to_EX = true;
+                curr.dependent_rs1 ? buffer2.rs1_needs_EX_to_EX = true : buffer2.rs2_needs_EX_to_EX = true;
             }
             // Memory from previous instruction
             if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr, "MEM"))
             {
-                curr.dependent_rs1? curr.rs1_needs_MEM_to_MEM = true:curr.rs2_needs_MEM_to_MEM = true;
+                curr.dependent_rs1 ? buffer2.rs1_needs_MEM_to_MEM = true : buffer2.rs2_needs_MEM_to_MEM = true;
             }
             // Execute from prev to prev instruction
             if (pipeline[3].instr && needsForwarding(curr, *pipeline[3].instr, "EX"))
             {
-                curr.dependent_rs1? curr.rs1_needs_MEM_to_EX = true:curr.rs2_needs_MEM_to_EX = true;
+                curr.dependent_rs1 ? buffer2.rs1_needs_MEM_to_EX = true : buffer2.rs2_needs_MEM_to_EX = true;
             }
         }
-        if(curr.rs1_needs_EX_to_EX)alu_input1 = EX_MEM;
-        if(curr.rs2_needs_EX_to_EX)alu_input2 = EX_MEM;
-        if(curr.rs1_needs_MEM_to_EX)alu_input1 = MEM_WB;
-        if(curr.rs2_needs_MEM_to_EX)alu_input2 = MEM_WB;
+        if (buffer2.rs1_needs_EX_to_EX)
+            buffer2.alu_input1 = buffer3.alu_output;
+        if (buffer2.rs2_needs_EX_to_EX)
+            buffer2.alu_input2 = buffer3.alu_output;
+        if (buffer2.rs1_needs_MEM_to_EX)
+            buffer2.alu_input1 = buffer4.mem_output;
+        if (buffer2.rs2_needs_MEM_to_EX)
+            buffer2.alu_input2 = buffer4.mem_output;
         return curr;
     }
     return {instruction, "Unknown"};
@@ -473,37 +583,43 @@ Instruction decodeUJType(uint32_t instruction, vector<PipelineStage> &pipeline)
     if (ujTypeInstructions.find(key) != ujTypeInstructions.end())
     {
         curr = {instruction, "", "", ujTypeInstructions[key], regNums[rd], -1, -1, imm};
-        alu_signal = operationMap[curr.op];
-        alu_input1 = global_pc;
-        alu_input2= curr.imm;
+        buffer2.rs2 = curr.rs2;
+        buffer2.alu_signal = operationMap[curr.op];
+        buffer2.alu_input1 = global_pc;
+        buffer2.alu_input2 = curr.imm;
+        buffer2.rd = rd;
         bool stall = false;
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
 
-            curr.stall = true;
+            buffer2.stall = true;
         }
         // Execute from previous instruction
         else
         {
             if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr, "EX"))
             {
-                curr.dependent_rs1? curr.rs1_needs_EX_to_EX = true:curr.rs2_needs_EX_to_EX = true;
+                curr.dependent_rs1 ? buffer2.rs1_needs_EX_to_EX = true : buffer2.rs2_needs_EX_to_EX = true;
             }
             // Memory from previous instruction
             if (pipeline[2].instr && needsForwarding(curr, *pipeline[2].instr, "MEM"))
             {
-                curr.dependent_rs1? curr.rs1_needs_MEM_to_MEM = true:curr.rs2_needs_MEM_to_MEM = true;
+                curr.dependent_rs1 ? buffer2.rs1_needs_MEM_to_MEM = true : buffer2.rs2_needs_MEM_to_MEM = true;
             }
             // Execute from prev to prev instruction
             if (pipeline[3].instr && needsForwarding(curr, *pipeline[3].instr, "EX"))
             {
-                curr.dependent_rs1? curr.rs1_needs_MEM_to_EX = true:curr.rs2_needs_MEM_to_EX = true;
+                curr.dependent_rs1 ? buffer2.rs1_needs_MEM_to_EX = true : buffer2.rs2_needs_MEM_to_EX = true;
             }
         }
-        if(curr.rs1_needs_EX_to_EX)alu_input1 = EX_MEM;
-        if(curr.rs2_needs_EX_to_EX)alu_input2 = EX_MEM;
-        if(curr.rs1_needs_MEM_to_EX)alu_input1 = MEM_WB;
-        if(curr.rs2_needs_MEM_to_EX)alu_input2 = MEM_WB;
+        if (buffer2.rs1_needs_EX_to_EX)
+            buffer2.alu_input1 = buffer3.alu_output;
+        if (buffer2.rs2_needs_EX_to_EX)
+            buffer2.alu_input2 = buffer3.alu_output;
+        if (buffer2.rs1_needs_MEM_to_EX)
+            buffer2.alu_input1 = buffer4.mem_output;
+        if (buffer2.rs2_needs_MEM_to_EX)
+            buffer2.alu_input2 = buffer4.mem_output;
         return curr;
     }
     return {instruction, "Unknown"};
@@ -536,10 +652,53 @@ Instruction decodeInstruction(uint32_t instr, vector<PipelineStage> &pipeline)
 
 int Execute()
 {
-  
-  int val = ALU(alu_input1,alu_input2,alu_signal);
-  EX_MEM = val;
-  return val;
+    //   cout<<buffer2.alu_input1<<" "<<buffer2.alu_input2<<" "<<buffer2.alu_signal<<endl;
+    int val = ALU(buffer2.alu_input1, buffer2.alu_input2, buffer2.alu_signal);
+    buffer3.alu_output = val;
+    return val;
+}
+
+void MemAccess()
+{
+    if (buffer3.needs_mem)
+    {
+        if (buffer3.read)
+        { // load instructions . buffer3.alu_output will be the effective address
+            int32_t value = 0;
+            for (int i = buffer3.blocks - 1; i >= 0; i--)
+            {
+                cout << buffer3.alu_output + i << " " << MainMemory[buffer3.alu_output + i] << endl;
+                value = (value << 8) | MainMemory[buffer3.alu_output + i];
+            }
+            buffer4.mem_output = value;
+            cout << " MEM OUTPUT " << value << endl;
+        }
+        else
+        { // store, alu_output is effective address. buffer.rs2 is to be stored
+            if (buffer3.rs2_needs_MEM_to_MEM)
+                buffer3.rs2 = buffer4.mem_output;
+            for (int i = 0; i < buffer3.blocks; i++)
+            {
+
+                MainMemory[buffer3.alu_output + i] = static_cast<uint8_t>(RegFile[buffer3.rs2] & 0xFF); // Extract lowest 8 bits
+                buffer3.rs2 >>= 8;                                                                      // Shift right to get next byte
+            }
+        }
+    }
+    else
+    {
+        buffer4.mem_output = buffer3.alu_output;
+    }
+    return;
+}
+
+void WriteBack()
+{
+    cout << buffer4.rd << " " << buffer4.mem_output << endl;
+    if (buffer4.needs_writeback)
+    {
+        RegFile[buffer4.rd] = buffer4.mem_output;
+    }
 }
 
 vector<uint32_t> loadProgram(const string &filename)
@@ -559,6 +718,9 @@ vector<uint32_t> loadProgram(const string &filename)
 
 int main()
 {
+    // cout<<&operationMap<<endl;
+    // cout<<operationMap["SUB"]<<endl;
+
     vector<uint32_t> program = loadProgram("instructions.txt");
 
     vector<PipelineStage> pipeline(5); // IF, ID, EX, MEM, WB
@@ -567,21 +729,43 @@ int main()
 
     cout << "Pipeline simulation with forwarding and correct timing:\n\n";
 
-    while (pc < program.size() || any_of(pipeline.begin(), pipeline.end(), [](auto &st) { return st.instr != nullptr; }))
+    while (pc < program.size() || any_of(pipeline.begin(), pipeline.end(), [](auto &st)
+                                         { return st.instr != nullptr; }))
     {
         cout << "Cycle " << ++cycle << ":\n";
 
         // ----------- STEP 1: Process Stages from WB to EX first -------------
         if (pipeline[4].instr)
+        {
             cout << "  WriteBack:  0x" << setfill('0') << setw(8) << hex << pipeline[4].instr->mc << "\n";
+            WriteBack();
+            buffer4 = default_buffer4;
+        }
         if (pipeline[3].instr)
+        {
             cout << "  MemAccess:  0x" << setfill('0') << setw(8) << hex << pipeline[3].instr->mc << "\n";
+            MemAccess();
+            buffer4.rd = buffer3.rd;
+            buffer4.needs_writeback = buffer3.needs_writeback;
+            buffer3 = default_buffer3;
+        }
         if (pipeline[2].instr)
         {
             cout << "  Execute:    0x" << setfill('0') << setw(8) << hex << pipeline[2].instr->mc << "\n";
             int val = Execute(); // This should read only current state (not updated by Decode)
             cout << " VAL " << val << endl;
         }
+        buffer3.needs_mem = buffer2.needs_mem;
+        buffer3.rd = buffer2.rd;
+        buffer3.rs2 = buffer2.rs2;
+        buffer3.rs1_needs_MEM_to_MEM = buffer2.rs1_needs_MEM_to_MEM;
+        buffer3.rs2_needs_MEM_to_MEM = buffer2.rs2_needs_MEM_to_MEM;
+        buffer3.read = buffer2.read;
+        buffer3.write = buffer2.write;
+        buffer3.blocks = buffer2.blocks;
+        buffer3.needs_writeback = buffer2.needs_writeback;
+
+        buffer2 = default_buffer2;
 
         // ----------- STEP 2: Hazard Detection & Decode -------------
         bool stall = false;
@@ -591,7 +775,7 @@ int main()
             // Decode the instruction and check for hazards
             Instruction decoded = decodeInstruction(curr.mc, pipeline);
             curr = decoded;
-            stall = curr.stall;
+            stall = buffer2.stall;
 
             cout << "  Decode:     0x" << setfill('0') << setw(8) << hex << curr.mc << "\n";
         }
@@ -610,7 +794,7 @@ int main()
             // Insert bubble into EX, keep ID and IF stages
             pipeline[4] = pipeline[3]; // MEM → WB
             pipeline[3] = pipeline[2]; // EX → MEM
-            pipeline[2].instr = &nop; // EX becomes bubble
+            pipeline[2].instr = &nop;  // EX becomes bubble
 
             // Revert PC if an instruction was fetched in this cycle
             if (pipeline[0].instr != nullptr)
@@ -625,10 +809,10 @@ int main()
         else
         {
             // Normal pipeline advancement
-            pipeline[4] = pipeline[3]; // MEM → WB
-            pipeline[3] = pipeline[2]; // EX → MEM
-            pipeline[2] = pipeline[1]; // ID → EX
-            pipeline[1] = pipeline[0]; // IF → ID
+            pipeline[4] = pipeline[3];   // MEM → WB
+            pipeline[3] = pipeline[2];   // EX → MEM
+            pipeline[2] = pipeline[1];   // ID → EX
+            pipeline[1] = pipeline[0];   // IF → ID
             pipeline[0].instr = nullptr; // Clear IF
 
             pc++; // Increment PC after fetching
@@ -646,7 +830,8 @@ int main()
             stage.instr = nullptr;
         }
     }
+    for (int i = 0; i < 31; i++)
+        cout << i << " " << RegFile[i] << endl;
 
     return 0;
 }
-
