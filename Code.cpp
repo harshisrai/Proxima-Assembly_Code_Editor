@@ -1,20 +1,58 @@
+#include <bits/stdc++.h>
 #include <iostream>
 #include <fstream>
-#include <sstream>
-#include <vector>
-#include <string>
-#include <algorithm>
-#include <iomanip>
-#include <cstdint>
 #include <bitset>
 #include <unordered_map>
+#include <bits/stdc++.h>
+#include <thread>
+#include <chrono>
+#include <stdexcept>
+#include <algorithm>
+#include <vector>
+#include <iomanip>
+#include <cctype>
+#include <string>
+#include <unordered_set>
+
 using namespace std;
 
 uint32_t global_pc = 0x0;
 int RM = 0x0;
 int RZ = 0x0;
 int RY = 0x0;
+vector<pair<int, uint32_t>> InstructionPCPairs;
+vector<int> RegFile = {0, 0, 2147483612, 268435456, 0, 0, 0, 0, 0, 0, 1, 2147483612, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+unordered_map<uint32_t, int> MainMemory;
 
+const int regNums[32] = {
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
+void MemAccessforDataSeg(string op, int value, int eff)
+{
+    if (op == "SB" || op == "SH" || op == "SW")
+    {
+        unordered_set<int> st;
+        int size = 0;
+        if (op == "SB")
+        {
+            size = 1;
+        }
+        else if (op == "SH")
+        {
+            size = 2;
+        }
+        else if (op == "SW")
+        {
+            size = 4;
+        }
+
+        for (int i = 0; i < size; i++)
+        {
+            MainMemory[eff + i] = static_cast<uint8_t>(value & 0xFF); // Extract lowest 8 bits
+            value >>= 8;                                              // Shift right to get next byte
+            st.insert(eff+i-(eff+i)%4);
+        }
+    }
+}
 struct IF_ID
 {
     uint32_t pc = global_pc;
@@ -24,7 +62,9 @@ struct IF_ID
 struct ID_EX
 {
     int alu_input1, alu_input2, rd;
-    int32_t imm;
+    int32_t imm = 0;
+   
+    bool branch = false;
     int rs2;
     int alu_signal;
     bool rs1_needs_EX_to_EX = false;  // Needed in execute stage
@@ -38,6 +78,7 @@ struct ID_EX
     bool write = false, read = false; // Memory signals
     int blocks;                       // lb,lh,lw,sb,sh,sw
     bool needs_writeback = true;
+    int ra = 0;
 };
 
 struct EX_MEM
@@ -51,6 +92,10 @@ struct EX_MEM
     int blocks;
     bool rs1_needs_MEM_to_MEM = false;
     bool rs2_needs_MEM_to_MEM = false;
+    bool branch = false;
+    int ra = 0;
+    int32_t imm;
+    bool flush = false;
 };
 
 struct MEM_WB
@@ -88,7 +133,7 @@ struct PipelineStage
     Instruction *instr = nullptr;
 };
 
-unordered_map<uint32_t, int> MainMemory;
+
 
 bool needsForwarding(Instruction &curr, Instruction &prev, string in)
 {
@@ -126,14 +171,14 @@ uint32_t ALU(int val1, int val2, int OP)
     else if (OP == 13)
     {
 
-        return val1 == val2;
+        return buffer3.branch = (val1 == val2);
     }
     else if (OP == 14)
-        return val1 != val2;
+        return buffer2.branch = val1 != val2;
     else if (OP == 15)
-        return val1 >= val2;
+        return buffer2.branch = val1 >= val2;
     else if (OP == 16)
-        return val1 < val2;
+        return buffer2.branch = val1 < val2;
     else if (OP == 17 || OP == 18)
         return RZ = val1 & val2;
     else if (OP == 19 || OP == 20)
@@ -225,10 +270,32 @@ unordered_map<string, string> uTypeInstructions = {
 unordered_map<string, string> ujTypeInstructions = {
     {"1101111", "JAL"}};
 
-vector<int> RegFile = {0, 0, 2147483612, 268435456, 0, 0, 0, 0, 0, 0, 1, 2147483612, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-const int regNums[32] = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
+
+    int IAG()
+    {
+        if (!buffer3.branch)
+        {
+            cout<<"NO BRANCH REQUIRED"<<endl;
+            // cout << "IAG Call; new PC: 0x" <<hex<< global_pc + 4 <<dec<< endl;
+            return global_pc = global_pc + 4;
+        }
+        else if(buffer3.ra)
+        {
+            cout<<"JALR"<<endl;
+            // cout << "IAG Call; new PC: " << RegFile[buffer3.ra] + buffer3.imm << endl;
+            buffer3.flush = true;
+            return global_pc = RegFile[buffer3.ra] + buffer3.imm-8;
+        }
+        else  
+        {
+            cout<<"NORMAL BRANCHES "<<endl;
+            buffer3.flush = true;
+            // cout << "IAG Call; new PC: " << global_pc + buffer3.imm << endl;
+            return global_pc = global_pc + buffer3.imm-8;
+        }
+       
+    }
 
 Instruction decodeRType(uint32_t instruction, vector<PipelineStage> &pipeline)
 {
@@ -250,7 +317,7 @@ Instruction decodeRType(uint32_t instruction, vector<PipelineStage> &pipeline)
         curr.needs_rs2_in = "EX";
         curr.op = rTypeInstructions[key];
         buffer2.alu_signal = operationMap[curr.op];
-        cout << "Operation " << curr.op << " " << buffer2.alu_signal << endl;
+        // cout << "Operation " << curr.op << " " << buffer2.alu_signal << endl;
         curr.rd = regNums[rd];
         curr.rs1 = regNums[rs1];
         curr.rs2 = regNums[rs2];
@@ -334,7 +401,7 @@ Instruction decodeIType(uint32_t instruction, vector<PipelineStage> &pipeline)
         curr.needs_rs2_in = "";
         curr.op = iTypeInstructions[key];
         buffer2.alu_signal = operationMap[curr.op];
-        cout << "Operation " << curr.op << " " << buffer2.alu_signal << endl;
+        // cout << "Operation " << curr.op << " " << buffer2.alu_signal << endl;
         curr.rd = regNums[rd];
         buffer2.rd = curr.rd;
         curr.rs1 = regNums[rs1];
@@ -350,6 +417,13 @@ Instruction decodeIType(uint32_t instruction, vector<PipelineStage> &pipeline)
             buffer2.read = true;
             buffer2.write = false;
             buffer2.blocks = 1 << funct3;
+        }
+        else if(opcode==0x67){
+            buffer2.branch = true;
+            
+            buffer2.ra = curr.rs1;
+            buffer2.alu_input1 = global_pc;
+            buffer2.alu_input2 = 4;
         }
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
@@ -467,10 +541,12 @@ Instruction decodeSBType(uint32_t instruction, vector<PipelineStage> &pipeline)
     int32_t imm = (imm12 << 12) | (imm11 << 11) | (imm10_5 << 5) | (imm4_1 << 1);
     if (imm & (1 << 12))
         imm |= 0xFFFFE000;
+    buffer2.imm = imm;
     string key = bitset<7>(opcode).to_string() + bitset<3>(funct3).to_string();
     Instruction curr;
     if (sbTypeInstructions.find(key) != sbTypeInstructions.end())
     {
+        buffer2.branch = true;
         buffer2.needs_writeback = false;
         curr = {instruction, "EX", "EX", sbTypeInstructions[key], -1, regNums[rs1], regNums[rs2], imm};
         buffer2.alu_signal = operationMap[curr.op];
@@ -582,6 +658,8 @@ Instruction decodeUJType(uint32_t instruction, vector<PipelineStage> &pipeline)
     Instruction curr;
     if (ujTypeInstructions.find(key) != ujTypeInstructions.end())
     {
+        buffer2.branch = true;
+        buffer2.imm = imm;
         curr = {instruction, "", "", ujTypeInstructions[key], regNums[rd], -1, -1, imm};
         buffer2.rs2 = curr.rs2;
         buffer2.alu_signal = operationMap[curr.op];
@@ -694,7 +772,7 @@ void MemAccess()
 
 void WriteBack()
 {
-    cout << buffer4.rd << " " << buffer4.mem_output << endl;
+    //cout << buffer4.rd << " " << buffer4.mem_output << endl;
     if (buffer4.needs_writeback)
     {
         RegFile[buffer4.rd] = buffer4.mem_output;
@@ -718,18 +796,108 @@ vector<uint32_t> loadProgram(const string &filename)
 
 int main()
 {
-    // cout<<&operationMap<<endl;
-    // cout<<operationMap["SUB"]<<endl;
+    ifstream inputFile("output.mc"); // Open the input file containing machine code.
+    if (!inputFile)
+    {
+        cerr << "Error: Unable to open input.mc" << endl;
+        return 1;
+    }
 
-    vector<uint32_t> program = loadProgram("instructions.txt");
+    // Clear the global instruction memory vector.
+    InstructionPCPairs.clear();
+
+    string line;
+    uint32_t machineCode;
+    int pc;
+
+    // Read the file line by line and update both InstructionPCPairs and MainMemory.
+    bool readingInstructions = true;
+    while (getline(inputFile, line))
+    {
+        // Skip empty lines.
+        if (line.empty())
+            continue;
+
+        // Check if we have reached the end of the instruction segment.
+        if (line.find("#end of text segment") != string::npos)
+        {
+            readingInstructions = false;
+            continue;
+        }
+
+        // When reading the instruction segment:
+        if (readingInstructions)
+        {
+            //if line is "exit"
+            // if (to_uppercase(line) == "EXIT")
+            // {   
+            //     //emplace into the map the pc and 0x0
+            //     InstructionPCPairs.emplace_back(pc, 0x0);
+            // }
+
+            // Skip header lines (for example, those containing "Address")
+            if (line.find("Address") != string::npos)
+                continue;
+
+            istringstream iss(line);
+            string address, machineCodeStr;
+
+            // Read the address and machine code from each line.
+            if (!(iss >> address >> machineCodeStr))
+                continue;
+            // also read the instruction opname
+            string opname;
+            if (!(iss >> opname))
+                continue;
+            if (opname == "ld" || opname == "sd")
+            {
+                // throw stderror
+                cerr << "Error: Unsupported instruction " << opname << " with respect to RV32" << endl;
+                return 1;
+            }
+            // Remove trailing ':' from address if present.
+            if (!address.empty() && address.back() == ':')
+                address.pop_back();
+
+            // Convert the address (PC) and machine code from hexadecimal to integers.
+            pc = stoi(address, nullptr, 16);
+            machineCode = stoul(machineCodeStr, nullptr, 16);
+
+            // Save the pair (PC, machine code) to the instruction memory.
+            InstructionPCPairs.emplace_back(pc, machineCode);
+        }
+        else
+        {
+            // Reading the data segment.
+            // Skip header lines (for example, those containing "Memory")
+            if (line.find("Memory") != string::npos)
+                continue;
+
+            istringstream iss(line);
+            string memAddrStr, memValStr;
+
+            if (!(iss >> memAddrStr >> memValStr))
+                continue;
+
+            // Convert memory address and value from hexadecimal to integers.
+            uint32_t memAddr = stoi(memAddrStr, nullptr, 16);
+            int memVal = stoul(memValStr, nullptr, 16);
+            // cout<<"Memory address 0x"<<hex<<memAddr<<" has been loaded with value 0x"<<memVal<<endl;
+            // Update MainMemory with the value at this address.
+            MemAccessforDataSeg("SW", memVal, memAddr);
+        }
+    }
+    inputFile.close();
+
+    //vector<uint32_t> program = loadProgram("instructions.txt");
 
     vector<PipelineStage> pipeline(5); // IF, ID, EX, MEM, WB
-    int cycle = 0, pc = 0;
+    int cycle = 0;
     Instruction nop; // represents a bubble (NOP)
 
     cout << "Pipeline simulation with forwarding and correct timing:\n\n";
 
-    while (pc < program.size() || any_of(pipeline.begin(), pipeline.end(), [](auto &st)
+    while (global_pc / 4 < InstructionPCPairs.size() || any_of(pipeline.begin(), pipeline.end(), [](auto &st)
                                          { return st.instr != nullptr; }))
     {
         cout << "Cycle " << ++cycle << ":\n";
@@ -754,6 +922,7 @@ int main()
             cout << "  Execute:    0x" << setfill('0') << setw(8) << hex << pipeline[2].instr->mc << "\n";
             int val = Execute(); // This should read only current state (not updated by Decode)
             cout << " VAL " << val << endl;
+            
         }
         buffer3.needs_mem = buffer2.needs_mem;
         buffer3.rd = buffer2.rd;
@@ -764,8 +933,13 @@ int main()
         buffer3.write = buffer2.write;
         buffer3.blocks = buffer2.blocks;
         buffer3.needs_writeback = buffer2.needs_writeback;
+        buffer3.ra = buffer2.ra;
+        buffer3.imm = buffer2.imm;
+        buffer3.branch = buffer2.branch;
 
         buffer2 = default_buffer2;
+        
+        
 
         // ----------- STEP 2: Hazard Detection & Decode -------------
         bool stall = false;
@@ -781,11 +955,18 @@ int main()
         }
 
         // ----------- STEP 3: Fetch Stage -------------
-        if (!stall && pc < program.size())
+        if (!stall && global_pc / 4 < InstructionPCPairs.size())
         {
-            cout << "  Fetch:      0x" << setfill('0') << setw(8) << hex << program[pc] << "\n";
+            cout << "  Fetch:      0x" << setfill('0') << setw(8) << hex << InstructionPCPairs[global_pc/4].second << "\n";
             pipeline[0].instr = new Instruction();
-            pipeline[0].instr->mc = program[pc];
+            pipeline[0].instr->mc = InstructionPCPairs[global_pc/4].second;
+            IAG();
+            cout<<"NEW PC IS "<<global_pc<<endl;
+            if(buffer3.flush){
+                pipeline[0].instr = nullptr;
+                pipeline[1].instr = nullptr;
+                buffer2 = default_buffer2;
+            }
         }
 
         // ----------- STEP 4: Pipeline Register Update -------------
@@ -801,7 +982,7 @@ int main()
             {
                 delete pipeline[0].instr;
                 pipeline[0].instr = nullptr;
-                pc--;
+                global_pc-=4;
             }
 
             cout << "STALLING THE PIPELINE!!! " << endl;
@@ -815,7 +996,7 @@ int main()
             pipeline[1] = pipeline[0];   // IF → ID
             pipeline[0].instr = nullptr; // Clear IF
 
-            pc++; // Increment PC after fetching
+            
         }
 
         cout << "\n";
