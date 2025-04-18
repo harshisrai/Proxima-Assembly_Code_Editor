@@ -70,7 +70,7 @@ void MemAccessforDataSeg(string op, int value, int eff)
 }
 struct IF_ID
 {
-    uint32_t pc = global_pc;
+    uint32_t pc;
     uint32_t instruction;
 };
 
@@ -120,10 +120,12 @@ struct MEM_WB
     bool needs_writeback = true;
     int rd;
 };
+IF_ID defaultbuffer1;
 ID_EX default_buffer2;
 EX_MEM default_buffer3;
 MEM_WB default_buffer4;
 
+IF_ID buffer1;
 ID_EX buffer2;
 EX_MEM buffer3;
 MEM_WB buffer4;
@@ -781,7 +783,7 @@ Instruction decodeInstruction(uint32_t instr, vector<PipelineStage> &pipeline)
 {
     uint32_t opcode = instr & 0x7F;
     buffer2.pc=global_pc;
-    cout<<"buffer2 PC: "<<global_pc<<endl;
+    cout<<"buffer2 PC: "<<buffer1.pc<<endl;
     switch (opcode)
     {
     case 0x33:
@@ -811,7 +813,7 @@ int Execute()
     //   cout<<buffer2.alu_input1<<" "<<buffer2.alu_input2<<" "<<buffer2.alu_signal<<endl;
     int val = ALU(buffer2.alu_input1, buffer2.alu_input2, buffer2.alu_signal);
     buffer3.alu_output = val;
-    
+    cout<<"buffer 2 pc : "<<buffer2.pc<<endl;
     // —— Branch‐outcome handling ——
     // buffer3.branch is true if the branch/jump should take
     if (branch_inst || buffer2.ra) {
@@ -1042,7 +1044,9 @@ int main()
         bool stall = false;
         if (pipeline[1].instr) // ID stage
         {
+            
             Instruction &curr = *pipeline[1].instr;
+            cout << "  Decode:     0x" << setfill('0') << setw(8) << hex << curr.mc << "\n";
             uint32_t currPC   = global_pc;
             // Decode the instruction and check for hazards
             Instruction decoded = decodeInstruction(curr.mc, pipeline);
@@ -1064,8 +1068,10 @@ int main()
 
             }
             stall = buffer2.stall;
+            buffer2.pc = buffer1.pc;
+            buffer1 = defaultbuffer1;
 
-            cout << "  Decode:     0x" << setfill('0') << setw(8) << hex << curr.mc << "\n";
+            
         }
 
         // ----------- STEP 3: Fetch Stage -------------
@@ -1074,6 +1080,8 @@ int main()
             cout << "  Fetch:      0x" << setfill('0') << setw(8) << hex << InstructionPCPairs[global_pc/4].second << "\n";
             pipeline[0].instr = new Instruction();
             pipeline[0].instr->mc = InstructionPCPairs[global_pc/4].second;
+            buffer1.pc = global_pc;
+            buffer1.instruction = pipeline[0].instr->mc;
             IAG();
             cout<<"NEW PC IS "<<global_pc<<endl;
             if(buffer3.flush){
