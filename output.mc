@@ -1,9 +1,14 @@
 Address       Machine Code    Assembly Code 					   Opcode-Func3-Func7-rd-rs1-imm
-0x0:          0x00500213      addi x4 x0 5                         # 0010011-000-NULL-00100-00000-NULL-000000000101
-0x4:          0x000002B3      add x5 x0 x0                         # 0110011-000-0000000-00101-00000-00000-NULL
-0x8:          0x00128293      addi x5 x5 1                         # 0010011-000-NULL-00101-00101-NULL-000000000001
-0xc:          0xFE521EE3      bne x4 x5 label                      # 1100011-001-0000000-NULL-00100-00101-111111111100
-0x10:         0x000283B3      add x7 x5 x0                         # 0110011-000-0000000-00111-00101-00000-NULL
+0x0:          0x00100093      addi x1 x0 1                         # 0010011-000-NULL-00001-00000-NULL-000000000001
+0x4:          0x0140006F      jal x0  t4                           # 1101111-NULL-NULL-00000-NULL-NULL-00000000000000010100
+0x8:          0x00100113      addi x2 x0 1                         # 0010011-000-NULL-00010-00000-NULL-000000000001
+0xc:          0x0140006F      jal x0  t5                           # 1101111-NULL-NULL-00000-NULL-NULL-00000000000000010100
+0x10:         0x00100193      addi x3 x0 1                         # 0010011-000-NULL-00011-00000-NULL-000000000001
+0x14:         0x0140006F      jal x0  exit                         # 1101111-NULL-NULL-00000-NULL-NULL-00000000000000010100
+0x18:         0x00100213      addi x4 x0 1                         # 0010011-000-NULL-00100-00000-NULL-000000000001
+0x1c:         0xFEDFF06F      jal x0  t2                           # 1101111-NULL-NULL-00000-NULL-NULL-11111111111111101100
+0x20:         0x00100293      addi x5 x0 1                         # 0010011-000-NULL-00101-00000-NULL-000000000001
+0x24:         0xFEDFF06F      jal x0  t3                           # 1101111-NULL-NULL-00000-NULL-NULL-11111111111111101100
 0x8   #end of text segment
 
 Memory Address   Value

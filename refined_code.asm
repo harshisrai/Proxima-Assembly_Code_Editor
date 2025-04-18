@@ -1,6 +1,11 @@
-0x0: addi x4 x0 5
-0x4: add x5 x0 x0
-0x8: addi x5 x5 1
-0xc: bne x4 x5 label
-0x10: add x7 x5 x0
+0x0: addi x1 x0 1
+0x4: jal x0  t4
+0x8: addi x2 x0 1
+0xc: jal x0  t5
+0x10: addi x3 x0 1
+0x14: jal x0  exit
+0x18: addi x4 x0 1
+0x1c: jal x0  t2
+0x20: addi x5 x0 1
+0x24: jal x0  t3
 

@@ -115,6 +115,8 @@ struct EX_MEM
     bool flush = false;
 };
 
+bool stall = false;
+
 struct MEM_WB
 {
     int mem_output; // In case read from memory
@@ -291,9 +293,13 @@ unordered_map<string, string> ujTypeInstructions = {
 
     int IAG()
     {
-        if (!buffer3.branch)
+        if (branchPrediction)
         {
-            cout<<"NO BRANCH REQUIRED"<<endl;
+           cout << "\033[1;32m## BRANCH PREDICTION ##\033[0m" << endl;
+            return global_pc = predictedPc;
+        }
+        else if (!buffer3.branch && (global_pc / 4 < InstructionPCPairs.size()))
+        {
             // cout << "IAG Call; new PC: 0x" <<hex<< global_pc + 4 <<dec<< endl;
             return global_pc = global_pc + 4;
         }
@@ -304,17 +310,16 @@ unordered_map<string, string> ujTypeInstructions = {
             buffer3.flush = true;
             return global_pc = RegFile[buffer3.ra] + buffer3.imm-8;
         }
-        else if (branchPrediction)
-        {
-            cout<<"BRANCH PREDICTION"<<endl;
-            return global_pc = predictedPc;
-        }
-        else  
+        
+        else if(buffer3.branch)  
         {
             cout<<"NORMAL BRANCHES "<<endl;
             buffer3.flush = true;
             // cout << "IAG Call; new PC: " << global_pc + buffer3.imm << endl;
             return global_pc = global_pc + buffer3.imm-8;
+        }
+        else{
+            return global_pc;
         }
        
     }
@@ -824,8 +829,8 @@ int Execute()
     // —— Branch‐outcome handling ——
     // buffer3.branch is true if the branch/jump should take
     if (branch_inst) {
-        cout<<"Taken/Not Taken: "<< buffer2.branch<<endl;
-        cout<<"PC inst: " <<buffer2.pc<<endl;
+        cout<<"\tTaken/Not Taken: "<< buffer2.branch<<endl;
+        cout<<"\tPC inst: " <<buffer2.pc<<endl;
         uint32_t branchPC = buffer2.pc;
         uint32_t actualTarget;
         if (buffer2.ra) {
@@ -834,33 +839,38 @@ int Execute()
             actualTarget = branchPC + buffer2.imm;
         }
 
-        cout<<"updating BTB & BHT "<<endl;
+        cout<<"\t ++ updating BTB & BHT ++ "<<endl;
 
         auto it = BTB.find(buffer2.pc);
         
         if(it == BTB.end()){
             BTB[branchPC] = actualTarget;
             BHT[branchPC] = buffer2.branch;
+            pipeline[0].instr = nullptr;
+            stall=true;
+            pipeline[1].instr = nullptr;
         }
         else{ 
             bool wasTaken = buffer2.branch;
             bool history = (BHT[branchPC]);
-            cout<<"wasTaken: "<<wasTaken<<endl;
-            cout<<"history: "<<history<<endl;
+            cout<<"\twasTaken: "<<wasTaken<<endl;
+            cout<<"\thistory: "<<history<<endl;
             if (history != wasTaken) {
             // flush IF & ID
-            cout<<"Wrong Prediction"<<endl;
+             cout << "\033[1;35m\t-- Wrong Prediction --\033[0m" << endl;
             pipeline[0].instr = nullptr;
+            stall=true;
             pipeline[1].instr = nullptr;
             // correct PC
             global_pc = wasTaken
                         ? actualTarget
-                        : (branchPC + 4);
-            cout<<"actual pc: "<<global_pc<<endl;
+                        : (branchPC);
+            cout<<"\tactual pc: "<<global_pc+4<<endl;
             BHT[branchPC]=wasTaken;
             }
             else{
-                cout<<"Correct Prediction"<<endl;
+                cout << "\033[1;34m\t -- Correct Prediction -- \033[0m" << endl;
+
             }
         }
 
@@ -908,7 +918,7 @@ void MemAccess()
 void WriteBack()
 {
     //cout << buffer4.rd << " " << buffer4.mem_output << endl;
-    if (buffer4.needs_writeback)
+    if (buffer4.needs_writeback && buffer4.rd!=0)
     {
         RegFile[buffer4.rd] = buffer4.mem_output;
     }
@@ -1022,18 +1032,18 @@ int main()
     while (global_pc / 4 < InstructionPCPairs.size() || any_of(pipeline.begin(), pipeline.end(), [](auto &st)
                                          { return st.instr != nullptr; }))
     {
-        cout << "Cycle " << ++cycle << ":\n";
-
+        cout << "\033[1;31m============ Cycle " << ++cycle << " ============\n\033[0m";
+        stall=false;
         // ----------- STEP 1: Process Stages from WB to EX first -------------
         if (pipeline[4].instr)
         {
-            cout << "  WriteBack:  0x" << setfill('0') << setw(8) << hex << pipeline[4].instr->mc << "\n";
+            cout << "\n**  WriteBack:  0x" << setfill('0') << setw(8) << hex << pipeline[4].instr->mc << "\n";
             WriteBack();
             buffer4 = default_buffer4;
         }
         if (pipeline[3].instr)
         {
-            cout << "  MemAccess:  0x" << setfill('0') << setw(8) << hex << pipeline[3].instr->mc << "\n";
+            cout << "\n**  MemAccess:  0x" << setfill('0') << setw(8) << hex << pipeline[3].instr->mc << "\n";
             MemAccess();
             buffer4.rd = buffer3.rd;
             buffer4.needs_writeback = buffer3.needs_writeback;
@@ -1041,9 +1051,9 @@ int main()
         }
         if (pipeline[2].instr)
         {
-            cout << "  Execute:    0x" << setfill('0') << setw(8) << hex << pipeline[2].instr->mc << "\n";
+            cout << "\n**  Execute:    0x" << setfill('0') << setw(8) << hex << pipeline[2].instr->mc << "\n";
             int val = Execute(); // This should read only current state (not updated by Decode)
-            cout << " VAL " << val << endl;
+            cout << "\tVAL " << val << endl;
             
         }
         buffer3.needs_mem = buffer2.needs_mem;
@@ -1064,19 +1074,19 @@ int main()
         
 
         // ----------- STEP 2: Hazard Detection & Decode -------------
-        bool stall = false;
+        
         if (pipeline[1].instr) // ID stage
         {
             
             Instruction &curr = *pipeline[1].instr;
-            cout << "  Decode:     0x" << setfill('0') << setw(8) << hex << curr.mc << "\n";
+            cout << "\n**  Decode:     0x" << setfill('0') << setw(8) << hex << curr.mc << "\n";
             uint32_t currPC   = global_pc;
             // Decode the instruction and check for hazards
             Instruction decoded = decodeInstruction(curr.mc, pipeline);
             uint32_t opcode = curr.mc & 0x7F;
             curr = decoded;
             if (isBranchOpcode(opcode)) {
-                cout<<"Branch instruction detected!"<<endl;
+                cout<<"\tBranch instruction detected!"<<endl;
             }
             stall = buffer2.stall;
             buffer2.pc = buffer1.pc;
@@ -1084,19 +1094,19 @@ int main()
 
             
         }
-        cout<<"fetch stall: "<<stall<<endl;
-        cout<<"global pc bool: "<<(global_pc / 4 < InstructionPCPairs.size())<<endl;
+        cout<<"\tfetch stall: "<<stall<<endl;
+        cout<<"\tglobal pc bool: "<<(global_pc / 4 < InstructionPCPairs.size())<<endl;
         // ----------- STEP 3: Fetch Stage -------------
         if (!stall && global_pc / 4 < InstructionPCPairs.size())
         {
             auto it = BTB.find(global_pc);
             if(it != BTB.end()){
-                cout<<"BTB HIT!"<<endl;
+                cout<<"\tBTB HIT!"<<endl;
             }
             bool predictTaken = (it != BTB.end() && BHT[global_pc]);
             //print whether successful find or not - if not then populate BTB
             
-            cout << "  Fetch:      0x" << setfill('0') << setw(8) << hex << InstructionPCPairs[global_pc/4].second << "\n";
+            cout << "\n**  Fetch:      0x" << setfill('0') << setw(8) << hex << InstructionPCPairs[global_pc/4].second << "\n";
             pipeline[0].instr = new Instruction();
             pipeline[0].instr->mc = InstructionPCPairs[global_pc/4].second;
             buffer1.pc = global_pc;
@@ -1162,16 +1172,18 @@ int main()
             stage.instr = nullptr;
         }
     }
+    cout << "\033[1;36m+--------------------\033[0m" << endl;
     for (int i = 0; i < 31; i++)
         cout << i << " " << RegFile[i] << endl;
-
+    cout << "\033[1;36m+--------------------\033[0m" << endl;
     //print BTB and BH
-    cout << "BTB" << endl;
+    cout<<"\n"<<endl;
+    cout << "=== BTB === " << endl;
     for (auto it : BTB)
     {
         cout << "PC: " << hex << it.first << " Target: " << hex << it.second << endl;
     }
-    cout << "BHT" << endl;
+    cout << "\n === BHT ===" << endl;
     for (auto it : BHT)
     {
         cout << "PC: " << hex << it.first << " Taken: " << it.second << endl;
