@@ -1,11 +1,6 @@
-0x0: addi x3 x0 5
-0x4: addi x4 x0 10
-0x8: add  x5 x3 x4
-0xc: addi x6 x3 10
-0x10: beq  x5 x6 target
-0x14: addi x7 x0 30
-0x18: beq  x0 x0 exit
-0x1c: addi x3 x0 5
-0x20: addi x3 x0 5
-0x24:  addi x7 x0 20
+0x0: addi x4 x0 5
+0x4: add x5 x0 x0
+0x8: addi x5 x5 1
+0xc: bne x4 x5 label
+0x10: add x7 x5 x0
 
