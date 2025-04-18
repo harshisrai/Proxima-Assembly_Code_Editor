@@ -6,6 +6,8 @@ beq  x5 x6 target
 addi x7 x0 30
 beq  x0 x0 exit
 addi x3 x0 5
+beq x8 x1 target
+beq x9 x2 target
 addi x3 x0 5
 target: addi x7 x0 20
 

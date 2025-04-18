@@ -1,0 +1,12 @@
+Cycles,0
+Instructions,0
+CPI,nan
+DataTransfers,0
+ALUInstructions,0
+ControlInstructions,0
+Stalls,0
+DataHazards,0
+ControlHazards,0
+BranchMispredicts,0
+StallsData,0
+StallsControl,0
