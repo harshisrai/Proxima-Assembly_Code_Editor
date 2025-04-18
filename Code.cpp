@@ -342,7 +342,7 @@ Instruction decodeRType(uint32_t instruction, vector<PipelineStage> &pipeline)
         buffer2.alu_input2 = RegFile[curr.rs2];
         buffer2.rd = curr.rd;
         buffer2.rs2 = curr.rs2;
-
+        buffer2.branch=false;
         bool stall = false;
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
@@ -427,6 +427,7 @@ Instruction decodeIType(uint32_t instruction, vector<PipelineStage> &pipeline)
         buffer2.stall = false;
         buffer2.alu_input1 = RegFile[curr.rs1];
         buffer2.alu_input2 = curr.imm;
+        buffer2.branch=false;
         if (opcode == 0x03)
         {
             buffer2.needs_mem = true;
@@ -512,6 +513,7 @@ Instruction decodeSType(uint32_t instruction, vector<PipelineStage> &pipeline)
         buffer2.needs_mem = true;
         buffer2.read = false;
         buffer2.write = true;
+        buffer2.branch=false;
         buffer2.blocks = 1 << funct3;
         curr = {instruction, "EX", "MEM", sTypeInstructions[key], -1, regNums[rs1], regNums[rs2], imm};
         buffer2.alu_signal = operationMap[curr.op];
@@ -654,7 +656,7 @@ Instruction decodeUType(uint32_t instruction, vector<PipelineStage> &pipeline)
         curr = {instruction, "", "", uTypeInstructions[key], regNums[rd], -1, -1, imm};
         buffer2.rs2 = curr.rs2;
         buffer2.alu_signal = operationMap[curr.op];
-
+        buffer2.branch=false;
         buffer2.alu_input1 = curr.imm;
         buffer2.alu_input2 = global_pc;
         buffer2.rd = rd;
@@ -783,7 +785,6 @@ Instruction decodeInstruction(uint32_t instr, vector<PipelineStage> &pipeline)
 {
     uint32_t opcode = instr & 0x7F;
     buffer2.pc=global_pc;
-    cout<<"buffer2 PC: "<<buffer1.pc<<endl;
     switch (opcode)
     {
     case 0x33:
@@ -808,16 +809,17 @@ Instruction decodeInstruction(uint32_t instr, vector<PipelineStage> &pipeline)
 
 int Execute()
 {
-    cout<<"buffer2.branch: "<< buffer2.branch<<endl;
+    
     bool branch_inst=buffer2.branch;
     //   cout<<buffer2.alu_input1<<" "<<buffer2.alu_input2<<" "<<buffer2.alu_signal<<endl;
     int val = ALU(buffer2.alu_input1, buffer2.alu_input2, buffer2.alu_signal);
     buffer3.alu_output = val;
-    cout<<"buffer 2 pc : "<<buffer2.pc<<endl;
+    
     // —— Branch‐outcome handling ——
     // buffer3.branch is true if the branch/jump should take
-    if (branch_inst || buffer2.ra) {
-        cout<<"inside"<<endl;
+    if (branch_inst) {
+        cout<<"Taken/Not Taken: "<< buffer2.branch<<endl;
+        cout<<"PC inst: " <<buffer2.pc<<endl;
         uint32_t branchPC = buffer2.pc;
         uint32_t actualTarget;
         if (buffer2.ra) {
@@ -1054,18 +1056,6 @@ int main()
             curr = decoded;
             if (isBranchOpcode(opcode)) {
                 cout<<"Branch instruction detected!"<<endl;
-                auto it = BTB.find(currPC);
-                bool predictTaken = (it != BTB.end() && BHT[currPC]);
-                //print whether successful find or not - if not then populate BTB
-                if (predictTaken) {
-                    global_pc = it->second;                 // redirect fetch
-                    delete pipeline[0].instr;               // flush IF
-                    pipeline[0].instr = nullptr;
-                    pipeline[1].instr = nullptr;            // flush ID
-                    buffer2.branch = true;                  // tell EX it’s a branch
-                    buffer2.imm    = it->second - currPC;
-                }
-
             }
             stall = buffer2.stall;
             buffer2.pc = buffer1.pc;
@@ -1077,18 +1067,28 @@ int main()
         // ----------- STEP 3: Fetch Stage -------------
         if (!stall && global_pc / 4 < InstructionPCPairs.size())
         {
+            cout<<"pre: "<<global_pc<<endl;
+            auto it = BTB.find(global_pc);
+            bool predictTaken = (it != BTB.end() && BHT[global_pc]);
+            //print whether successful find or not - if not then populate BTB
+            
+            cout<<"post: "<< global_pc<<endl;
             cout << "  Fetch:      0x" << setfill('0') << setw(8) << hex << InstructionPCPairs[global_pc/4].second << "\n";
             pipeline[0].instr = new Instruction();
             pipeline[0].instr->mc = InstructionPCPairs[global_pc/4].second;
             buffer1.pc = global_pc;
             buffer1.instruction = pipeline[0].instr->mc;
             IAG();
-            cout<<"NEW PC IS "<<global_pc<<endl;
+            cout<<"NEW PC IS: "<<global_pc<<endl;
             if(buffer3.flush){
                 pipeline[0].instr = nullptr;
                 pipeline[1].instr = nullptr;
                 buffer2 = default_buffer2;
             }
+            if (predictTaken) {
+                global_pc = it->second;                 // redirect fetch
+            }
+            
         }
 
         // ----------- STEP 4: Pipeline Register Update -------------

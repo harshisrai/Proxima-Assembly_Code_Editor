@@ -1,15 +1,12 @@
 addi x3 x0 5
-add x5 x0 x0
-target:
 addi x4 x0 10
-add  x28 x3 x4
-add x5 x5 x28
+add  x5 x3 x4
 addi x6 x3 10
-beq  x5 x6 target
+bne  x5 x6 target
 addi x7 x0 30
 jal x0 exit
 addi x3 x0 5
 addi x3 x0 5
-addi x7 x0 20
+target: addi x7 x0 20
 
 exit: 
