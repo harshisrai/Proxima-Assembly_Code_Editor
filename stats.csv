@@ -1,9 +1,9 @@
 Cycles,0
-Instructions,0
-CPI,nan
+Instructions,18
+CPI,0.00
 DataTransfers,0
-ALUInstructions,0
-ControlInstructions,0
+ALUInstructions,8
+ControlInstructions,10
 Stalls,0
 DataHazards,0
 ControlHazards,0
