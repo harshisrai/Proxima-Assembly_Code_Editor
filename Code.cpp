@@ -26,7 +26,8 @@ unordered_map<uint32_t, int> MainMemory;
 
 // Branch Target Buffer: maps branch-PC to its predicted target address
 static unordered_map<uint32_t, uint32_t> BTB;
-
+bool branchPrediction; 
+uint32_t predictedPc;
 // Branch History Table: maps branch-PC to last outcome (true = taken, false = not taken)
 static unordered_map<uint32_t, bool> BHT;
 
@@ -187,7 +188,7 @@ uint32_t ALU(int val1, int val2, int OP)
     else if (OP == 13)
     {
         
-        return buffer3.branch = (val1 == val2);
+        return buffer2.branch = (val1 == val2);
     }
     else if (OP == 14)
         return buffer2.branch = val1 != val2;
@@ -302,6 +303,11 @@ unordered_map<string, string> ujTypeInstructions = {
             // cout << "IAG Call; new PC: " << RegFile[buffer3.ra] + buffer3.imm << endl;
             buffer3.flush = true;
             return global_pc = RegFile[buffer3.ra] + buffer3.imm-8;
+        }
+        else if (branchPrediction)
+        {
+            cout<<"BRANCH PREDICTION"<<endl;
+            return global_pc = predictedPc;
         }
         else  
         {
@@ -829,22 +835,37 @@ int Execute()
         }
 
         cout<<"updating BTB & BHT "<<endl;
-        // Update BTB & BHT
-        BTB[branchPC] = actualTarget;
-        bool wasTaken = buffer2.branch;
-        BHT[branchPC] = wasTaken;
 
-        // Check misprediction
-        bool predictedTaken = (BHT[branchPC]);
-        if (predictedTaken != wasTaken) {
+        auto it = BTB.find(buffer2.pc);
+        
+        if(it == BTB.end()){
+            BTB[branchPC] = actualTarget;
+            BHT[branchPC] = buffer2.branch;
+        }
+        else{ 
+            bool wasTaken = buffer2.branch;
+            bool history = (BHT[branchPC]);
+            cout<<"wasTaken: "<<wasTaken<<endl;
+            cout<<"history: "<<history<<endl;
+            if (history != wasTaken) {
             // flush IF & ID
+            cout<<"Wrong Prediction"<<endl;
             pipeline[0].instr = nullptr;
             pipeline[1].instr = nullptr;
             // correct PC
             global_pc = wasTaken
                         ? actualTarget
                         : (branchPC + 4);
+            cout<<"actual pc: "<<global_pc<<endl;
+            BHT[branchPC]=wasTaken;
+            }
+            else{
+                cout<<"Correct Prediction"<<endl;
+            }
         }
+
+        
+        
     }
     
     return val;
@@ -1063,34 +1084,42 @@ int main()
 
             
         }
-
+        cout<<"fetch stall: "<<stall<<endl;
+        cout<<"global pc bool: "<<(global_pc / 4 < InstructionPCPairs.size())<<endl;
         // ----------- STEP 3: Fetch Stage -------------
         if (!stall && global_pc / 4 < InstructionPCPairs.size())
         {
-            cout<<"pre: "<<global_pc<<endl;
             auto it = BTB.find(global_pc);
+            if(it != BTB.end()){
+                cout<<"BTB HIT!"<<endl;
+            }
             bool predictTaken = (it != BTB.end() && BHT[global_pc]);
             //print whether successful find or not - if not then populate BTB
             
-            cout<<"post: "<< global_pc<<endl;
             cout << "  Fetch:      0x" << setfill('0') << setw(8) << hex << InstructionPCPairs[global_pc/4].second << "\n";
             pipeline[0].instr = new Instruction();
             pipeline[0].instr->mc = InstructionPCPairs[global_pc/4].second;
             buffer1.pc = global_pc;
             buffer1.instruction = pipeline[0].instr->mc;
-            IAG();
-            cout<<"NEW PC IS: "<<global_pc<<endl;
+           
+            
             if(buffer3.flush){
                 pipeline[0].instr = nullptr;
                 pipeline[1].instr = nullptr;
                 buffer2 = default_buffer2;
             }
             if (predictTaken) {
-                global_pc = it->second;                 // redirect fetch
+                branchPrediction=true;
+                predictedPc = it->second; 
+               // redirect fetch
+            }
+            else{
+                branchPrediction=false;
             }
             
         }
-
+            IAG();
+            cout<<"NEW PC IS: "<<global_pc<<endl;
         // ----------- STEP 4: Pipeline Register Update -------------
         if (stall)
         {
