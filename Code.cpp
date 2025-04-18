@@ -24,6 +24,21 @@ vector<pair<int, uint32_t>> InstructionPCPairs;
 vector<int> RegFile = {0, 0, 2147483612, 268435456, 0, 0, 0, 0, 0, 0, 1, 2147483612, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 unordered_map<uint32_t, int> MainMemory;
 
+// Branch Target Buffer: maps branch-PC to its predicted target address
+static unordered_map<uint32_t, uint32_t> BTB;
+
+// Branch History Table: maps branch-PC to last outcome (true = taken, false = not taken)
+static unordered_map<uint32_t, bool> BHT;
+
+
+// Helper to test if an opcode corresponds to a branch/jump
+inline bool isBranchOpcode(uint32_t opcode) {
+    return opcode == 0x63    // BEQ, BNE, BLT, BGE
+        || opcode == 0x6F    // JAL
+        || opcode == 0x67    // JALR
+        ;
+}
+
 const int regNums[32] = {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
 void MemAccessforDataSeg(string op, int value, int eff)
@@ -63,7 +78,7 @@ struct ID_EX
 {
     int alu_input1, alu_input2, rd;
     int32_t imm = 0;
-   
+    
     bool branch = false;
     int rs2;
     int alu_signal;
@@ -79,6 +94,7 @@ struct ID_EX
     int blocks;                       // lb,lh,lw,sb,sh,sw
     bool needs_writeback = true;
     int ra = 0;
+    uint32_t pc;
 };
 
 struct EX_MEM
@@ -115,7 +131,6 @@ MEM_WB buffer4;
 struct Instruction
 {
     uint32_t mc;
-
     string needs_rs1_in;
     string needs_rs2_in;
     string op;
@@ -124,7 +139,6 @@ struct Instruction
     int rs1;
     int rs2;
     int32_t imm;
-
     bool dependent_rs1 = false, dependent_rs2 = false;
 };
 
@@ -133,7 +147,7 @@ struct PipelineStage
     Instruction *instr = nullptr;
 };
 
-
+vector<PipelineStage> pipeline(5); // IF, ID, EX, MEM, WB
 
 bool needsForwarding(Instruction &curr, Instruction &prev, string in)
 {
@@ -766,6 +780,8 @@ Instruction decodeUJType(uint32_t instruction, vector<PipelineStage> &pipeline)
 Instruction decodeInstruction(uint32_t instr, vector<PipelineStage> &pipeline)
 {
     uint32_t opcode = instr & 0x7F;
+    buffer2.pc=global_pc;
+    cout<<"buffer2 PC: "<<global_pc<<endl;
     switch (opcode)
     {
     case 0x33:
@@ -790,9 +806,43 @@ Instruction decodeInstruction(uint32_t instr, vector<PipelineStage> &pipeline)
 
 int Execute()
 {
+    cout<<"buffer2.branch: "<< buffer2.branch<<endl;
+    bool branch_inst=buffer2.branch;
     //   cout<<buffer2.alu_input1<<" "<<buffer2.alu_input2<<" "<<buffer2.alu_signal<<endl;
     int val = ALU(buffer2.alu_input1, buffer2.alu_input2, buffer2.alu_signal);
     buffer3.alu_output = val;
+    
+    // —— Branch‐outcome handling ——
+    // buffer3.branch is true if the branch/jump should take
+    if (branch_inst || buffer2.ra) {
+        cout<<"inside"<<endl;
+        uint32_t branchPC = buffer2.pc;
+        uint32_t actualTarget;
+        if (buffer2.ra) {
+            actualTarget = RegFile[buffer2.ra] + buffer2.imm; 
+        } else {
+            actualTarget = branchPC + buffer2.imm;
+        }
+
+        cout<<"updating BTB & BHT "<<endl;
+        // Update BTB & BHT
+        BTB[branchPC] = actualTarget;
+        bool wasTaken = buffer2.branch;
+        BHT[branchPC] = wasTaken;
+
+        // Check misprediction
+        bool predictedTaken = (BHT[branchPC]);
+        if (predictedTaken != wasTaken) {
+            // flush IF & ID
+            pipeline[0].instr = nullptr;
+            pipeline[1].instr = nullptr;
+            // correct PC
+            global_pc = wasTaken
+                        ? actualTarget
+                        : (branchPC + 4);
+        }
+    }
+    
     return val;
 }
 
@@ -938,7 +988,7 @@ int main()
 
     
 
-    vector<PipelineStage> pipeline(5); // IF, ID, EX, MEM, WB
+    
     int cycle = 0;
     Instruction nop; // represents a bubble (NOP)
 
@@ -993,9 +1043,26 @@ int main()
         if (pipeline[1].instr) // ID stage
         {
             Instruction &curr = *pipeline[1].instr;
+            uint32_t currPC   = global_pc;
             // Decode the instruction and check for hazards
             Instruction decoded = decodeInstruction(curr.mc, pipeline);
+            uint32_t opcode = curr.mc & 0x7F;
             curr = decoded;
+            if (isBranchOpcode(opcode)) {
+                cout<<"Branch instruction detected!"<<endl;
+                auto it = BTB.find(currPC);
+                bool predictTaken = (it != BTB.end() && BHT[currPC]);
+                //print whether successful find or not - if not then populate BTB
+                if (predictTaken) {
+                    global_pc = it->second;                 // redirect fetch
+                    delete pipeline[0].instr;               // flush IF
+                    pipeline[0].instr = nullptr;
+                    pipeline[1].instr = nullptr;            // flush ID
+                    buffer2.branch = true;                  // tell EX it’s a branch
+                    buffer2.imm    = it->second - currPC;
+                }
+
+            }
             stall = buffer2.stall;
 
             cout << "  Decode:     0x" << setfill('0') << setw(8) << hex << curr.mc << "\n";
@@ -1061,5 +1128,17 @@ int main()
     for (int i = 0; i < 31; i++)
         cout << i << " " << RegFile[i] << endl;
 
+    //print BTB and BH
+    cout << "BTB" << endl;
+    for (auto it : BTB)
+    {
+        cout << "PC: " << hex << it.first << " Target: " << hex << it.second << endl;
+    }
+    cout << "BHT" << endl;
+    for (auto it : BHT)
+    {
+        cout << "PC: " << hex << it.first << " Taken: " << it.second << endl;
+    }
+    
     return 0;
 }
