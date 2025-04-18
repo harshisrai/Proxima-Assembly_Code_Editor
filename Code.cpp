@@ -3,7 +3,6 @@
 #include <fstream>
 #include <bitset>
 #include <unordered_map>
-#include <bits/stdc++.h>
 #include <thread>
 #include <chrono>
 #include <stdexcept>
@@ -42,6 +41,29 @@ inline bool isBranchOpcode(uint32_t opcode) {
 
 const int regNums[32] = {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
+
+// ─── KNOBS ────────────────────────────────────────────────────────────
+// Phase 3 input toggles:
+bool KNOB_PIPELINE = true;   // knob1 --implemented but need to refine non-pipeline
+bool KNOB_FORWARDING = true; // knob2 --not implemented
+bool KNOB_PRINT_REGS = true; // knob3 --implemented
+bool KNOB_TRACE_ALL = false; // knob4 --not implemented
+int KNOB_TRACE_INST = -1;    // knob5: instruction number (1‑based), -1=off --not implemented
+bool KNOB_PRINT_BP = false;  // knob6  --not implemented
+
+// ─── STAT COUNTERS ───────────────────────────────────────────────────
+uint64_t stat_cycles = 0;
+uint64_t stat_instructions = 0; //implemented
+uint64_t stat_data_transfers = 0; //implemented
+uint64_t stat_alu_instructions = 0; //implemented
+uint64_t stat_control_instructions = 0; //implemented
+uint64_t stat_stalls = 0;
+uint64_t stat_data_hazards = 0;
+uint64_t stat_control_hazards = 0;
+uint64_t stat_branch_mispredicts = 0;
+uint64_t stat_stalls_data = 0;
+uint64_t stat_stalls_control = 0;
+
 void MemAccessforDataSeg(string op, int value, int eff)
 {
     if (op == "SB" || op == "SH" || op == "SW")
@@ -65,7 +87,7 @@ void MemAccessforDataSeg(string op, int value, int eff)
         {
             MainMemory[eff + i] = static_cast<uint8_t>(value & 0xFF); // Extract lowest 8 bits
             value >>= 8;                                              // Shift right to get next byte
-            st.insert(eff+i-(eff+i)%4);
+            st.insert(eff + i - (eff + i) % 4);
         }
     }
 }
@@ -79,7 +101,7 @@ struct ID_EX
 {
     int alu_input1, alu_input2, rd;
     int32_t imm = 0;
-    
+ 
     bool branch = false;
     int rs2;
     int alu_signal;
@@ -401,7 +423,9 @@ Instruction decodeRType(uint32_t instruction, vector<PipelineStage> &pipeline)
             cout << " RS2 NEEDS FORWARDING FROM MEM" << endl;
             buffer2.alu_input2 = buffer4.mem_output;
         }
-
+        // STATS
+        stat_alu_instructions++; // R‑type → ALU
+        stat_instructions++;     // Increment instruction count
         return curr;
     }
     return {instruction, "Unknown"};
@@ -446,9 +470,10 @@ Instruction decodeIType(uint32_t instruction, vector<PipelineStage> &pipeline)
             buffer2.write = false;
             buffer2.blocks = 1 << funct3;
         }
-        else if(opcode==0x67){
+        else if (opcode == 0x67)
+        {
             buffer2.branch = true;
-            
+
             buffer2.ra = curr.rs1;
             buffer2.alu_input1 = global_pc;
             buffer2.alu_input2 = 4;
@@ -496,6 +521,15 @@ Instruction decodeIType(uint32_t instruction, vector<PipelineStage> &pipeline)
             cout << " RS2 NEEDS FORWARDING FROM MEM" << endl;
             buffer2.alu_input2 = buffer4.mem_output;
         }
+
+        // STATS UPDATE 
+        if (curr.op == "LW" || curr.op == "LB" || curr.op == "LH")
+            stat_data_transfers++;
+        else if (curr.op == "JALR")
+            stat_control_instructions++;
+        else
+            stat_alu_instructions++;
+        stat_instructions++;
         return curr;
     }
 
@@ -555,7 +589,7 @@ Instruction decodeSType(uint32_t instruction, vector<PipelineStage> &pipeline)
                 curr.dependent_rs1 ? buffer2.rs1_needs_MEM_to_EX = true : buffer2.rs2_needs_MEM_to_EX = true;
             }
         }
-       if (buffer2.rs1_needs_EX_to_EX)
+        if (buffer2.rs1_needs_EX_to_EX)
         {
             cout << " RS1 NEEDS FORWARDING FROM EX" << endl;
             buffer2.alu_input1 = buffer3.alu_output;
@@ -575,6 +609,10 @@ Instruction decodeSType(uint32_t instruction, vector<PipelineStage> &pipeline)
             cout << " RS2 NEEDS FORWARDING FROM MEM" << endl;
             buffer2.alu_input2 = buffer4.mem_output;
         }
+
+        // STATS UPDATE
+        stat_data_transfers++;
+        stat_instructions++;
         return curr;
     }
     return {instruction, "Unknown"};
@@ -650,6 +688,10 @@ Instruction decodeSBType(uint32_t instruction, vector<PipelineStage> &pipeline)
             cout << " RS2 NEEDS FORWARDING FROM MEM" << endl;
             buffer2.alu_input2 = buffer4.mem_output;
         }
+
+        // STATS UPDATE
+        stat_control_instructions++;
+        stat_instructions++;
         return curr;
     }
     return {instruction, "Unknown"};
@@ -715,6 +757,10 @@ Instruction decodeUType(uint32_t instruction, vector<PipelineStage> &pipeline)
             cout << " RS2 NEEDS FORWARDING FROM MEM" << endl;
             buffer2.alu_input2 = buffer4.mem_output;
         }
+
+        // STATS UPDATE
+        stat_alu_instructions++;
+        stat_instructions++;
         return curr;
     }
     return {instruction, "Unknown"};
@@ -787,6 +833,9 @@ Instruction decodeUJType(uint32_t instruction, vector<PipelineStage> &pipeline)
             cout << " RS2 NEEDS FORWARDING FROM MEM" << endl;
             buffer2.alu_input2 = buffer4.mem_output;
         }
+        // STATS UPDATE
+        stat_control_instructions++;
+        stat_instructions++;
         return curr;
     }
     return {instruction, "Unknown"};
@@ -960,12 +1009,12 @@ int main()
         // When reading the instruction segment:
         if (readingInstructions)
         {
-            //if line is "exit"
-            // if (to_uppercase(line) == "EXIT")
-            // {   
-            //     //emplace into the map the pc and 0x0
-            //     InstructionPCPairs.emplace_back(pc, 0x0);
-            // }
+            // if line is "exit"
+            //  if (to_uppercase(line) == "EXIT")
+            //  {
+            //      //emplace into the map the pc and 0x0
+            //      InstructionPCPairs.emplace_back(pc, 0x0);
+            //  }
 
             // Skip header lines (for example, those containing "Address")
             if (line.find("Address") != string::npos)
@@ -1021,16 +1070,60 @@ int main()
     }
     inputFile.close();
 
-    
+    // vector<uint32_t> program = loadProgram("instructions.txt");
 
-    
+    vector<PipelineStage> pipeline(5); // IF, ID, EX, MEM, WB
     int cycle = 0;
     Instruction nop; // represents a bubble (NOP)
+
+    // REGULAR PHASE 2 FUNCTIONING IF NO PIPELINING
+
+    if (!KNOB_PIPELINE)
+    {
+        // create a 5‑stage pipeline object with all stages empty
+        vector<PipelineStage> dummyPipeline(5);
+
+        for (auto &p : InstructionPCPairs)
+        {
+            uint32_t instr = p.second;
+
+            // ——— ID stage (decode)
+            Instruction decoded = decodeInstruction(instr, dummyPipeline);
+
+            // ——— EX stage
+            int aluOut = Execute();
+
+            // ——— MEM stage
+            MemAccess();
+            // propagate MEM→WB
+            buffer4.rd = buffer3.rd;
+            buffer4.needs_writeback = buffer3.needs_writeback;
+
+            // ——— WB stage
+            WriteBack();
+            if (KNOB_PRINT_REGS)
+            {
+                cout << "Reg File: " << endl; // in format of 0xreg : value
+                for (int i = 0; i < 32; i++)
+                {
+                    cout << "0x" << i << ": " << RegFile[i] << endl;
+                }
+            }
+
+            // count this instruction
+            stat_instructions++;
+        }
+
+        // cycles = one per instruction
+        stat_cycles = stat_instructions;
+        goto DUMP_STATS;
+    }
+    // … otherwise proceed into your existing pipelined loop …
 
     cout << "Pipeline simulation with forwarding and correct timing:\n\n";
 
     while (global_pc / 4 < InstructionPCPairs.size() || any_of(pipeline.begin(), pipeline.end(), [](auto &st)
-                                         { return st.instr != nullptr; }))
+                                                               { return st.instr != nullptr; }))
     {
         cout << "\033[1;31m============ Cycle " << ++cycle << " ============\n\033[0m";
         stall=false;
@@ -1070,8 +1163,6 @@ int main()
         buffer3.branch = buffer2.branch;
 
         buffer2 = default_buffer2;
-        
-        
 
         // ----------- STEP 2: Hazard Detection & Decode -------------
         
@@ -1143,7 +1234,7 @@ int main()
             {
                 delete pipeline[0].instr;
                 pipeline[0].instr = nullptr;
-                global_pc-=4;
+                global_pc -= 4;
             }
 
             cout << "STALLING THE PIPELINE!!! " << endl;
@@ -1156,11 +1247,17 @@ int main()
             pipeline[2] = pipeline[1];   // ID → EX
             pipeline[1] = pipeline[0];   // IF → ID
             pipeline[0].instr = nullptr; // Clear IF
-
-            
         }
 
         cout << "\n";
+        if (KNOB_PRINT_REGS)
+        {
+            cout << "Reg File: " << endl; // in format of 0xreg : value
+            for (int i = 0; i < 32; i++)
+            {
+                cout << "0x" << i << ": " << RegFile[i] << endl;
+            }
+        }
     }
 
     // Cleanup dynamically allocated instructions
@@ -1172,6 +1269,27 @@ int main()
             stage.instr = nullptr;
         }
     }
+
+DUMP_STATS:
+{
+    ofstream out("stats.csv");
+    out << "Cycles," << stat_cycles << "\n";
+    out << "Instructions," << stat_instructions << "\n";
+    out << "CPI," << fixed << setprecision(2)
+        << double(stat_cycles) / stat_instructions << "\n";
+    out << "DataTransfers," << stat_data_transfers << "\n";
+    out << "ALUInstructions," << stat_alu_instructions << "\n";
+    out << "ControlInstructions," << stat_control_instructions << "\n";
+    out << "Stalls," << stat_stalls << "\n";
+    out << "DataHazards," << stat_data_hazards << "\n";
+    out << "ControlHazards," << stat_control_hazards << "\n";
+    out << "BranchMispredicts," << stat_branch_mispredicts << "\n";
+    out << "StallsData," << stat_stalls_data << "\n";
+    out << "StallsControl," << stat_stalls_control << "\n";
+    out.close();
+}
+    cout << "Simulation complete. Statistics saved to stats.csv.\n";
+
     cout << "\033[1;36m+--------------------\033[0m" << endl;
     for (int i = 0; i < 31; i++)
         cout << i << " " << RegFile[i] << endl;
