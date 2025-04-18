@@ -156,8 +156,8 @@ bool needsForwarding(Instruction &curr, Instruction &prev, string in)
 bool loadUseHazard(const Instruction &curr, const Instruction &prev)
 {
 
-    return (prev.op == "LW" || prev.op == "LH" || prev.op == "LB") &&
-           ((curr.rs1 == prev.rd && curr.needs_rs1_in == "EX") || (curr.rs2 == prev.rd && curr.needs_rs2_in == "EX"));
+    return (buffer3.read) &&
+           ((curr.rs1 == buffer3.rd && curr.needs_rs1_in == "EX") || (curr.rs2 == buffer3.rd && curr.needs_rs2_in == "EX"));
 }
 unordered_map<string, int> operationMap = {
     {"ADD", 1}, {"ADDI", 2}, {"LB", 3}, {"LD", 4}, {"LH", 5}, {"LW", 6}, {"JALR", 7}, {"JAL", 8}, {"SB", 9}, {"SH", 10}, {"SD", 11}, {"SW", 12}, {"BEQ", 13}, {"BNE", 14}, {"BGE", 15}, {"BLT", 16}, {"AND", 17}, {"ANDI", 18}, {"OR", 19}, {"ORI", 20}, {"MUL", 21}, {"DIV", 22}, {"REM", 23}, {"XOR", 24}, {"SUB", 25}, {"SLL", 26}, {"SLT", 27}, {"SRL", 28}, {"SRA", 29}, {"LUI", 30}, {"AUIPC", 31}};
@@ -839,20 +839,7 @@ void WriteBack()
     }
 }
 
-vector<uint32_t> loadProgram(const string &filename)
-{
-    vector<uint32_t> program;
-    ifstream infile(filename);
-    string line;
-    while (getline(infile, line))
-    {
-        if (line.empty())
-            continue;
-        uint32_t instr = stoul(line, nullptr, 16);
-        program.push_back(instr);
-    }
-    return program;
-}
+
 
 int main()
 {
@@ -949,7 +936,7 @@ int main()
     }
     inputFile.close();
 
-    //vector<uint32_t> program = loadProgram("instructions.txt");
+    
 
     vector<PipelineStage> pipeline(5); // IF, ID, EX, MEM, WB
     int cycle = 0;
@@ -1035,7 +1022,7 @@ int main()
             // Insert bubble into EX, keep ID and IF stages
             pipeline[4] = pipeline[3]; // MEM → WB
             pipeline[3] = pipeline[2]; // EX → MEM
-            pipeline[2].instr = &nop;  // EX becomes bubble
+            pipeline[2].instr = nullptr;  // EX becomes bubble
 
             // Revert PC if an instruction was fetched in this cycle
             if (pipeline[0].instr != nullptr)
@@ -1065,7 +1052,7 @@ int main()
     // Cleanup dynamically allocated instructions
     for (auto &stage : pipeline)
     {
-        if (stage.instr != nullptr && stage.instr != &nop)
+        if (stage.instr != nullptr && stage.instr != nullptr)
         {
             delete stage.instr;
             stage.instr = nullptr;
