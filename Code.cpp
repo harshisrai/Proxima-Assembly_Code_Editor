@@ -196,7 +196,7 @@ bool needsForwarding(Instruction &curr, Instruction &prev, string in)
 
 bool loadUseHazard(const Instruction &curr, const Instruction &prev)
 {
-
+        cout<<buffer3.read<<" "<<curr.rs1<<" "<<curr.rs2<<" "<<buffer3.rd<<endl;
     return (buffer3.read) &&
            ((curr.rs1 == buffer3.rd && curr.needs_rs1_in == "EX") || (curr.rs2 == buffer3.rd && curr.needs_rs2_in == "EX"));
 }

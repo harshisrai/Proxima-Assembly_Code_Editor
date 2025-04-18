@@ -96,6 +96,7 @@ struct ID_EX
     bool needs_writeback = true;
     int ra = 0;
     uint32_t pc;
+    bool is_unconditional = false;
 };
 
 struct EX_MEM
@@ -114,6 +115,8 @@ struct EX_MEM
     int32_t imm;
     bool flush = false;
     uint32_t pc;
+    bool is_unconditional = false;
+    bool is_branching = false;
 };
 
 bool stall = false;
@@ -157,6 +160,7 @@ vector<PipelineStage> pipeline(5); // IF, ID, EX, MEM, WB
 
 bool needsForwarding(Instruction &curr, Instruction &prev, string in)
 {
+    if(prev.rd==0)return false;
     if (prev.op == "NOP" || prev.rd == -1)
         return false;
     if ((curr.rs1 == prev.rd && curr.needs_rs1_in == in))
@@ -175,7 +179,7 @@ bool needsForwarding(Instruction &curr, Instruction &prev, string in)
 
 bool loadUseHazard(const Instruction &curr, const Instruction &prev)
 {
-
+        cout<<buffer3.read<<" "<<curr.rs1<<" "<<curr.rs2<<" "<<buffer3.rd<<endl;
     return (buffer3.read) &&
            ((curr.rs1 == buffer3.rd && curr.needs_rs1_in == "EX") || (curr.rs2 == buffer3.rd && curr.needs_rs2_in == "EX"));
 }
@@ -184,6 +188,7 @@ unordered_map<string, int> operationMap = {
 
 uint32_t ALU(int val1, int val2, int OP)
 {
+    cout<<val1<<" "<<val2<<endl;
     if (OP == 1 || OP == 2 || OP == 3 || OP == 4 || OP == 5 || OP == 6 || OP == 7 || OP == 8 || OP == 9 || OP == 10 || OP == 11 || OP == 12)
     {
         return val1 + val2;
@@ -191,14 +196,16 @@ uint32_t ALU(int val1, int val2, int OP)
     else if (OP == 13)
     {
         
-        return buffer2.branch = (val1 == val2);
+        return buffer3.is_branching = (val1 == val2);
     }
     else if (OP == 14)
-        return buffer2.branch = val1 != val2;
+        {
+            
+            return buffer3.is_branching = (val1 != val2);}
     else if (OP == 15)
-        return buffer2.branch = val1 >= val2;
+        return buffer3.is_branching = val1 >= val2;
     else if (OP == 16)
-        return buffer2.branch = val1 < val2;
+        return buffer3.is_branching = val1 < val2;
     else if (OP == 17 || OP == 18)
         return RZ = val1 & val2;
     else if (OP == 19 || OP == 20)
@@ -294,6 +301,7 @@ unordered_map<string, string> ujTypeInstructions = {
 
     int IAG()
     {
+        if(buffer3.is_unconditional)return global_pc+=4;
         if (branchPrediction)
         {
            cout << "\033[1;32m## BRANCH PREDICTION ##\033[0m" << endl;
@@ -312,12 +320,12 @@ unordered_map<string, string> ujTypeInstructions = {
             return global_pc = RegFile[buffer3.ra] + buffer3.imm;
         }
         
-        else if(buffer3.branch)  
+        else if(buffer3.branch)  //first time encountering branch
         {
             cout<<"NORMAL BRANCHES "<<endl;
-            buffer3.flush = true;
+           if(buffer3.is_branching)buffer3.flush = true;
             // cout << "IAG Call; new PC: " << global_pc + buffer3.imm << endl;
-            return global_pc = buffer3.pc + buffer3.imm;
+            return global_pc +=4;
         }
         else{
             return global_pc;
@@ -449,10 +457,11 @@ Instruction decodeIType(uint32_t instruction, vector<PipelineStage> &pipeline)
         }
         else if(opcode==0x67){
             buffer2.branch = true;
-            
+            global_pc = RegFile[curr.rs1] + curr.imm;
             buffer2.ra = curr.rs1;
             buffer2.alu_input1 = global_pc;
             buffer2.alu_input2 = 4;
+            buffer2.is_unconditional = true;
         }
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
@@ -610,7 +619,6 @@ Instruction decodeSBType(uint32_t instruction, vector<PipelineStage> &pipeline)
         bool stall = false;
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
-
             buffer2.stall = true;
         }
         // Execute from previous instruction
@@ -742,8 +750,11 @@ Instruction decodeUJType(uint32_t instruction, vector<PipelineStage> &pipeline)
         buffer2.rs2 = curr.rs2;
         buffer2.alu_signal = operationMap[curr.op];
         buffer2.alu_input1 = global_pc;
-        buffer2.alu_input2 = curr.imm;
+        buffer2.alu_input2 = 0;
+        
+        global_pc = buffer2.pc+curr.imm;
         buffer2.rd = rd;
+        buffer2.is_unconditional = true;
         bool stall = false;
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
@@ -796,7 +807,7 @@ Instruction decodeUJType(uint32_t instruction, vector<PipelineStage> &pipeline)
 Instruction decodeInstruction(uint32_t instr, vector<PipelineStage> &pipeline)
 {
     uint32_t opcode = instr & 0x7F;
-    buffer2.pc=global_pc;
+    
     switch (opcode)
     {
     case 0x33:
@@ -830,7 +841,7 @@ int Execute()
     // —— Branch‐outcome handling ——
     // buffer3.branch is true if the branch/jump should take
     if (branch_inst) {
-        cout<<"\tTaken/Not Taken: "<< buffer2.branch<<endl;
+        cout<<"\tTaken/Not Taken: "<< val<<endl;
         cout<<"\tPC inst: " <<buffer2.pc<<endl;
         uint32_t branchPC = buffer2.pc;
         uint32_t actualTarget;
@@ -839,6 +850,7 @@ int Execute()
         } else {
             actualTarget = branchPC + buffer2.imm;
         }
+    
 
         cout<<"\t ++ updating BTB & BHT ++ "<<endl;
 
@@ -846,13 +858,17 @@ int Execute()
         
         if(it == BTB.end()){
             BTB[branchPC] = actualTarget;
-            BHT[branchPC] = buffer2.branch;
-            pipeline[0].instr = nullptr;
+            BHT[branchPC] = buffer3.is_branching;
+            if(buffer3.is_branching){ 
+                cout<<"HAD TO BRANCH BUT DIDN'T : FLUSHING NOW"<<endl;
+                pipeline[0].instr = nullptr;
+                global_pc = actualTarget;
             stall=true;
-            pipeline[1].instr = nullptr;
+            pipeline[1].instr = nullptr;}
+           
         }
         else{ 
-            bool wasTaken = buffer2.branch;
+            bool wasTaken = buffer3.is_branching;
             bool history = (BHT[branchPC]);
             cout<<"\twasTaken: "<<wasTaken<<endl;
             cout<<"\thistory: "<<history<<endl;
@@ -1070,7 +1086,9 @@ int main()
         buffer3.imm = buffer2.imm;
         buffer3.branch = buffer2.branch;
         buffer3.pc=buffer2.pc;
+        buffer3.is_unconditional = buffer2.is_unconditional;
         buffer2 = default_buffer2;
+        
         
         
 
@@ -1078,7 +1096,8 @@ int main()
         
         if (pipeline[1].instr) // ID stage
         {
-            
+              
+            buffer2.pc = buffer1.pc;
             Instruction &curr = *pipeline[1].instr;
             cout << "\n**  Decode:     0x" << setfill('0') << setw(8) << hex << curr.mc << "\n";
             uint32_t currPC   = global_pc;
@@ -1090,8 +1109,9 @@ int main()
                 cout<<"\tBranch instruction detected!"<<endl;
             }
             stall = buffer2.stall;
-            buffer2.pc = buffer1.pc;
-            buffer1 = defaultbuffer1;
+          
+            
+            
 
             
         }
@@ -1115,6 +1135,7 @@ int main()
            
             
             if(buffer3.flush){
+                cout<<"FLUSHING AFTER FETCHING "<<endl;
                 pipeline[0].instr = nullptr;
                 pipeline[1].instr = nullptr;
                 buffer2 = default_buffer2;
@@ -1140,12 +1161,11 @@ int main()
             pipeline[2].instr = nullptr;  // EX becomes bubble
 
             // Revert PC if an instruction was fetched in this cycle
-            if (pipeline[0].instr != nullptr)
-            {
+            
                 delete pipeline[0].instr;
                 pipeline[0].instr = nullptr;
                 global_pc-=4;
-            }
+            
 
             cout << "STALLING THE PIPELINE!!! " << endl;
         }
