@@ -1,4 +1,4 @@
-0x0: addi x31 x0 8
+0x0: addi x31 x0 5
 0x4: addi x10 x0 0
 0x8: lui x30 0x10000
 0xc: jal  x1 palindrome

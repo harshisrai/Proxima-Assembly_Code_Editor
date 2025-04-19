@@ -179,7 +179,7 @@ bool needsForwarding(Instruction &curr, Instruction &prev, string in)
 
 bool loadUseHazard(const Instruction &curr, const Instruction &prev)
 {
-        cout<<buffer3.read<<" "<<curr.rs1<<" "<<curr.rs2<<" "<<buffer3.rd<<endl;
+        //cout<<buffer3.read<<" "<<curr.rs1<<" "<<curr.rs2<<" "<<buffer3.rd<<endl;
     return (buffer3.read) &&
            ((curr.rs1 == buffer3.rd && curr.needs_rs1_in == "EX") || (curr.rs2 == buffer3.rd && curr.needs_rs2_in == "EX"));
 }
@@ -188,7 +188,7 @@ unordered_map<string, int> operationMap = {
 
 uint32_t ALU(int val1, int val2, int OP)
 {
-    cout<<val1<<" "<<val2<<endl;
+    cout<<val1<<" "<<val2<<" "<<OP<<endl;
     if (OP == 1 || OP == 2 || OP == 3 || OP == 4 || OP == 5 || OP == 6 || OP == 7 || OP == 8 || OP == 9 || OP == 10 || OP == 11 || OP == 12)
     {
         return val1 + val2;
@@ -846,6 +846,8 @@ int Execute()
         uint32_t branchPC = buffer2.pc;
         uint32_t actualTarget;
         if (buffer2.ra) {
+            cout<<"JALR"<<endl;
+            cout<<RegFile[buffer2.ra]<<" "<<buffer2.imm<<endl;
             actualTarget = RegFile[buffer2.ra] + buffer2.imm; 
         } else {
             actualTarget = branchPC + buffer2.imm;
@@ -867,6 +869,16 @@ int Execute()
             pipeline[1].instr = nullptr;}
            
         }
+        else if(buffer2.is_unconditional){
+            BTB[branchPC] = actualTarget;
+            BHT[branchPC] = buffer3.is_branching;
+            
+            pipeline[0].instr = nullptr;
+            global_pc = actualTarget;
+            stall=true;
+            pipeline[1].instr = nullptr;
+        }
+        
         else{ 
             bool wasTaken = buffer3.is_branching;
             bool history = (BHT[branchPC]);

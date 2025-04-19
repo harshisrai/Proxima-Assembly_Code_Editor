@@ -1,5 +1,5 @@
 Address       Machine Code    Assembly Code 					   Opcode-Func3-Func7-rd-rs1-imm
-0x0:          0x00800F93      addi x31 x0 8                        # 0010011-000-NULL-11111-00000-NULL-000000001000
+0x0:          0x00500F93      addi x31 x0 5                        # 0010011-000-NULL-11111-00000-NULL-000000000101
 0x4:          0x00000513      addi x10 x0 0                        # 0010011-000-NULL-01010-00000-NULL-000000000000
 0x8:          0x10000F37      lui x30 0x10000                      # 0110111-NULL-NULL-11110-NULL-NULL-00010000000000000000
 0xc:          0x00C000EF      jal  x1 palindrome                   # 1101111-NULL-NULL-00001-NULL-NULL-00000000000000001100
@@ -31,11 +31,9 @@ Address       Machine Code    Assembly Code 					   Opcode-Func3-Func7-rd-rs1-im
 0x8   #end of text segment
 
 Memory Address   Value
-0x10000000     0x48
+0x10000000     0x4E
 0x10000001     0x61
-0x10000002     0x61
-0x10000003     0x68
+0x10000002     0x6D
+0x10000003     0x61
 0x10000004     0x64
-0x10000005     0x68
-0x10000006     0x61
-0x10000007     0x48
+0x10000005     0x4E

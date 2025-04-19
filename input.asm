@@ -1,8 +1,8 @@
 .data
-.asciz "HaahdhaH"
+.asciz "NamadN"
 
 .text
-addi x31 x0 8 # size of string
+addi x31 x0 5 # size of string
 addi x10 x0 0 # initial left pointer
 lui x30 0x10000
 jal  x1 palindrome
