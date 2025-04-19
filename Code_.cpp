@@ -22,7 +22,7 @@ int RZ = 0x0;
 int RY = 0x0;
 vector<pair<int, uint32_t>> InstructionPCPairs;
 vector<int> RegFile = {0, 0, 2147483612, 268435456, 0, 0, 0, 0, 0, 0, 1, 2147483612, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-unordered_map<uint32_t, int> MainMemory;
+map<uint32_t, int> MainMemory;
 
 // Branch Target Buffer: maps branch-PC to its predicted target address
 static unordered_map<uint32_t, uint32_t> BTB;
@@ -395,21 +395,27 @@ Instruction decodeRType(uint32_t instruction, vector<PipelineStage> &pipeline)
             cout << " RS1 NEEDS FORWARDING FROM EX" << endl;
             buffer2.alu_input1 = buffer3.alu_output;
         }
+        else if (buffer2.rs1_needs_MEM_to_EX)
+        {
+            cout << " RS1 NEEDS FORWARDING FROM MEM" << endl;
+            buffer2.alu_input1 = buffer4.mem_output;
+        }
+        
+
         if (buffer2.rs2_needs_EX_to_EX)
         {
             cout << " RS2 NEEDS FORWARDING FROM EX" << endl;
             buffer2.alu_input2 = buffer3.alu_output;
         }
-        if (buffer2.rs1_needs_MEM_to_EX)
-        {
-            cout << " RS1 NEEDS FORWARDING FROM MEM" << endl;
-            buffer2.alu_input1 = buffer4.mem_output;
-        }
-        if (buffer2.rs2_needs_MEM_to_EX)
+       else if (buffer2.rs2_needs_MEM_to_EX)
         {
             cout << " RS2 NEEDS FORWARDING FROM MEM" << endl;
             buffer2.alu_input2 = buffer4.mem_output;
         }
+         
+        
+       
+    
 
         return curr;
     }
@@ -491,17 +497,19 @@ Instruction decodeIType(uint32_t instruction, vector<PipelineStage> &pipeline)
             cout << " RS1 NEEDS FORWARDING FROM EX" << endl;
             buffer2.alu_input1 = buffer3.alu_output;
         }
+        else if (buffer2.rs1_needs_MEM_to_EX)
+        {
+            cout << " RS1 NEEDS FORWARDING FROM MEM" << endl;
+            buffer2.alu_input1 = buffer4.mem_output;
+        }
+        
+
         if (buffer2.rs2_needs_EX_to_EX)
         {
             cout << " RS2 NEEDS FORWARDING FROM EX" << endl;
             buffer2.alu_input2 = buffer3.alu_output;
         }
-        if (buffer2.rs1_needs_MEM_to_EX)
-        {
-            cout << " RS1 NEEDS FORWARDING FROM MEM" << endl;
-            buffer2.alu_input1 = buffer4.mem_output;
-        }
-        if (buffer2.rs2_needs_MEM_to_EX)
+       else if (buffer2.rs2_needs_MEM_to_EX)
         {
             cout << " RS2 NEEDS FORWARDING FROM MEM" << endl;
             buffer2.alu_input2 = buffer4.mem_output;
@@ -565,22 +573,24 @@ Instruction decodeSType(uint32_t instruction, vector<PipelineStage> &pipeline)
                 curr.dependent_rs1 ? buffer2.rs1_needs_MEM_to_EX = true : buffer2.rs2_needs_MEM_to_EX = true;
             }
         }
-       if (buffer2.rs1_needs_EX_to_EX)
+        if (buffer2.rs1_needs_EX_to_EX)
         {
             cout << " RS1 NEEDS FORWARDING FROM EX" << endl;
             buffer2.alu_input1 = buffer3.alu_output;
         }
+        else if (buffer2.rs1_needs_MEM_to_EX)
+        {
+            cout << " RS1 NEEDS FORWARDING FROM MEM" << endl;
+            buffer2.alu_input1 = buffer4.mem_output;
+        }
+        
+
         if (buffer2.rs2_needs_EX_to_EX)
         {
             cout << " RS2 NEEDS FORWARDING FROM EX" << endl;
             buffer2.alu_input2 = buffer3.alu_output;
         }
-        if (buffer2.rs1_needs_MEM_to_EX)
-        {
-            cout << " RS1 NEEDS FORWARDING FROM MEM" << endl;
-            buffer2.alu_input1 = buffer4.mem_output;
-        }
-        if (buffer2.rs2_needs_MEM_to_EX)
+       else if (buffer2.rs2_needs_MEM_to_EX)
         {
             cout << " RS2 NEEDS FORWARDING FROM MEM" << endl;
             buffer2.alu_input2 = buffer4.mem_output;
@@ -644,17 +654,19 @@ Instruction decodeSBType(uint32_t instruction, vector<PipelineStage> &pipeline)
             cout << " RS1 NEEDS FORWARDING FROM EX" << endl;
             buffer2.alu_input1 = buffer3.alu_output;
         }
+        else if (buffer2.rs1_needs_MEM_to_EX)
+        {
+            cout << " RS1 NEEDS FORWARDING FROM MEM" << endl;
+            buffer2.alu_input1 = buffer4.mem_output;
+        }
+        
+
         if (buffer2.rs2_needs_EX_to_EX)
         {
             cout << " RS2 NEEDS FORWARDING FROM EX" << endl;
             buffer2.alu_input2 = buffer3.alu_output;
         }
-        if (buffer2.rs1_needs_MEM_to_EX)
-        {
-            cout << " RS1 NEEDS FORWARDING FROM MEM" << endl;
-            buffer2.alu_input1 = buffer4.mem_output;
-        }
-        if (buffer2.rs2_needs_MEM_to_EX)
+       else if (buffer2.rs2_needs_MEM_to_EX)
         {
             cout << " RS2 NEEDS FORWARDING FROM MEM" << endl;
             buffer2.alu_input2 = buffer4.mem_output;
@@ -678,7 +690,7 @@ Instruction decodeUType(uint32_t instruction, vector<PipelineStage> &pipeline)
         buffer2.alu_signal = operationMap[curr.op];
         buffer2.branch=false;
         buffer2.alu_input1 = curr.imm;
-        buffer2.alu_input2 = global_pc;
+        buffer2.alu_input2 = buffer1.pc;
         buffer2.rd = rd;
         bool stall = false;
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
@@ -709,17 +721,19 @@ Instruction decodeUType(uint32_t instruction, vector<PipelineStage> &pipeline)
             cout << " RS1 NEEDS FORWARDING FROM EX" << endl;
             buffer2.alu_input1 = buffer3.alu_output;
         }
+        else if (buffer2.rs1_needs_MEM_to_EX)
+        {
+            cout << " RS1 NEEDS FORWARDING FROM MEM" << endl;
+            buffer2.alu_input1 = buffer4.mem_output;
+        }
+        
+
         if (buffer2.rs2_needs_EX_to_EX)
         {
             cout << " RS2 NEEDS FORWARDING FROM EX" << endl;
             buffer2.alu_input2 = buffer3.alu_output;
         }
-        if (buffer2.rs1_needs_MEM_to_EX)
-        {
-            cout << " RS1 NEEDS FORWARDING FROM MEM" << endl;
-            buffer2.alu_input1 = buffer4.mem_output;
-        }
-        if (buffer2.rs2_needs_MEM_to_EX)
+       else if (buffer2.rs2_needs_MEM_to_EX)
         {
             cout << " RS2 NEEDS FORWARDING FROM MEM" << endl;
             buffer2.alu_input2 = buffer4.mem_output;
@@ -784,17 +798,19 @@ Instruction decodeUJType(uint32_t instruction, vector<PipelineStage> &pipeline)
             cout << " RS1 NEEDS FORWARDING FROM EX" << endl;
             buffer2.alu_input1 = buffer3.alu_output;
         }
+        else if (buffer2.rs1_needs_MEM_to_EX)
+        {
+            cout << " RS1 NEEDS FORWARDING FROM MEM" << endl;
+            buffer2.alu_input1 = buffer4.mem_output;
+        }
+        
+
         if (buffer2.rs2_needs_EX_to_EX)
         {
             cout << " RS2 NEEDS FORWARDING FROM EX" << endl;
             buffer2.alu_input2 = buffer3.alu_output;
         }
-        if (buffer2.rs1_needs_MEM_to_EX)
-        {
-            cout << " RS1 NEEDS FORWARDING FROM MEM" << endl;
-            buffer2.alu_input1 = buffer4.mem_output;
-        }
-        if (buffer2.rs2_needs_MEM_to_EX)
+       else if (buffer2.rs2_needs_MEM_to_EX)
         {
             cout << " RS2 NEEDS FORWARDING FROM MEM" << endl;
             buffer2.alu_input2 = buffer4.mem_output;
@@ -1220,6 +1236,11 @@ int main()
     for (auto it : BHT)
     {
         cout << "PC: " << hex << it.first << " Taken: " << it.second << endl;
+    }
+
+    cout<<"\n === MAIN MEMORY ==="<<endl;
+    for (auto it:MainMemory){
+        cout<<it.first<<" "<<it.second<<endl;
     }
     
     return 0;
