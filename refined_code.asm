@@ -1,30 +1,48 @@
-0x0: addi x31 x0 5
-0x4: addi x10 x0 0
-0x8: lui x30 0x10000
-0xc: jal  x1 palindrome
-0x10: addi x17 x16 5
-0x14: beq x0 x0 exit
-0x18: addi x2 x2 -4
+0x0: addi x3 x0 6
+0x4: lui x4 0x10000
+0x8: addi x5 x5 0
+0xc: addi x6 x3 -1
+0x10: jal x1 quicksort
+0x14: beq x0 x0 end
+0x18: addi x2 x2 -12
 0x1c: sw x1 0 x2
-0x20: sub x12 x31 x10
-0x24: addi x12 x12 -1
-0x28: bge x10 x12 true
-0x2c: add x13 x30 x10
-0x30: lb x14 0 x13
-0x34: add x15 x30 x12
-0x38: lb x16 0 x15
-0x3c: bne x16 x14 false
-0x40: addi x10 x10 1
-0x44: jal x1 palindrome
+0x20: sw x6 4 x2
+0x24: bge x5 x6 return
+0x28: jal x1 partition
+0x2c: sw x30 8 x2
+0x30: addi x6 x30 -1
+0x34: jal x1 quicksort
+0x38: lw x5 8 x2
+0x3c: addi x5 x5 1
+0x40: lw x6 4 x2
+0x44: jal x1 quicksort
 0x48: lw x1 0 x2
-0x4c: addi x2 x2 4
+0x4c: addi x2 x2 12
 0x50: jalr x0 x1 0
-0x54: addi x20 x0 1
-0x58: lw x1 0 x2
-0x5c: addi x2 x2 4
-0x60: jalr x0 x1 0
-0x64: addi x20 x20 0
-0x68: lw x1 0 x2
-0x6c: addi x2 x2 4
-0x70: jalr x0 x1 0
+0x54: add x31 x4 x6
+0x58: lb x11 0 x31
+0x5c: addi x30 x5 -1
+0x60: add x29 x0 x5
+0x64: bge x29 x6 end_partition
+0x68: add x12 x29 x4
+0x6c: lb x13 0 x12
+0x70: blt x13 x11 swap
+0x74: addi x29 x29 1
+0x78: beq x0 x0 loop
+0x7c: addi x30 x30 1
+0x80: add x14 x30 x4
+0x84: lb x15 0 x14
+0x88: sb x13 0 x14
+0x8c: sb x15 0 x12
+0x90: addi x29 x29 1
+0x94: beq x0 x0 loop
+0x98: addi x30 x30 1
+0x9c: add x29 x30 x4
+0xa0: lb x28 0 x29
+0xa4: sb x28 0 x31
+0xa8: sb x11 0 x29
+0xac: jalr x0 x1 0
+0xb0: lw x1 0 x2
+0xb4: addi x2 x2 12
+0xb8: jalr x0 x1 0
 

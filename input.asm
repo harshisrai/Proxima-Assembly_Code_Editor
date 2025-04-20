@@ -1,42 +1,70 @@
 .data
-.asciz "NamadN"
+arr1: .byte 9 8 7 6 5 4 10 11 12 2
 
 .text
-addi x31 x0 5 # size of string
-addi x10 x0 0 # initial left pointer
-lui x30 0x10000
-jal  x1 palindrome
-addi x17 x16 5
-beq x0 x0 exit
+addi x3 x0 10 # size of arx1y
+lui x4 0x10000 # base address
+addi x5 x5 0 # initial low
+addi x6 x3 -1 # initial high
 
-palindrome:
-addi x2 x2 -4
-sw x1 0 x2
-sub x12 x31 x10
-addi x12 x12 -1 # current right pointer
-bge x10 x12 true
-add x13 x30 x10
-lb x14 0 x13
-add x15 x30 x12
-lb x16 0 x15
-bne x16 x14 false
-addi x10 x10 1
-jal x1 palindrome
+jal x1 quicksort
+beq x0 x0 end
+
+quicksort:
+addi x2 x2 -12
+sw x1 0 x2 # storing return address
+sw x6 4 x2 # storing high
+bge x5 x6 return
+
+jal x1 partition
+sw x30 8 x2 # storing pivot index
+addi x6 x30 -1 # pivot index - 1
+jal x1 quicksort
+lw x5 8 x2 # restoring pivot index
+addi x5 x5 1
+lw x6 4 x2
+jal x1 quicksort
 lw x1 0 x2
-addi x2 x2 4
+addi x2 x2 12
 jalr x0 x1 0
 
 
-true:
-addi x20 x0 1
-lw x1 0 x2
-addi x2 x2 4
+
+partition:
+add x31 x4 x6 # effective high
+lb x11 0 x31 # pivot
+addi x30 x5 -1 # i = low-1
+add x29 x0 x5 # j = low
+
+loop:bge x29 x6 end_partition
+add x12 x29 x4 # effective j
+lb x13 0 x12 # A[j]
+blt x13 x11 swap # A[j]<=pivot
+addi x29 x29 1
+beq x0 x0 loop
+
+swap:
+addi x30 x30 1 # i = i+1
+add x14 x30 x4 # effective i
+lb x15 0 x14 # A[i]
+sb x13 0 x14
+sb x15 0 x12 # swapped A[i] with A[j]
+addi x29 x29 1
+beq x0 x0 loop
+
+
+
+end_partition:
+addi x30 x30 1 # i+1
+add x29 x30 x4 # effective i+1
+lb x28 0 x29 # A[i+1]
+sb x28 0 x31
+sb x11 0 x29
 jalr x0 x1 0
 
-false:
-addi x20 x20 0
-lw x1 0 x2
-addi x2 x2 4
-jalr x0 x1 0
 
-exit:
+return:
+lw x1 0 x2
+addi x2 x2 12
+jalr x0 x1 0
+end:
