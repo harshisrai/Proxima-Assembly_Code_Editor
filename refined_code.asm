@@ -1,11 +1,30 @@
-0x0: addi x1 x0 1
-0x4: jal x0  t4
-0x8: addi x2 x0 1
-0xc: jal x0  t5
-0x10: addi x3 x0 1
-0x14: jal x0  exit
-0x18: addi x4 x0 1
-0x1c: jal x0  t2
-0x20: addi x5 x0 1
-0x24: jal x0  t3
+0x0: addi x31 x0 5
+0x4: addi x10 x0 0
+0x8: lui x30 0x10000
+0xc: jal  x1 palindrome
+0x10: addi x17 x16 5
+0x14: beq x0 x0 exit
+0x18: addi x2 x2 -4
+0x1c: sw x1 0 x2
+0x20: sub x12 x31 x10
+0x24: addi x12 x12 -1
+0x28: bge x10 x12 true
+0x2c: add x13 x30 x10
+0x30: lb x14 0 x13
+0x34: add x15 x30 x12
+0x38: lb x16 0 x15
+0x3c: bne x16 x14 false
+0x40: addi x10 x10 1
+0x44: jal x1 palindrome
+0x48: lw x1 0 x2
+0x4c: addi x2 x2 4
+0x50: jalr x0 x1 0
+0x54: addi x20 x0 1
+0x58: lw x1 0 x2
+0x5c: addi x2 x2 4
+0x60: jalr x0 x1 0
+0x64: addi x20 x20 0
+0x68: lw x1 0 x2
+0x6c: addi x2 x2 4
+0x70: jalr x0 x1 0
 
