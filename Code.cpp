@@ -25,17 +25,17 @@ unordered_map<uint32_t, int> MainMemory;
 
 // Branch Target Buffer: maps branch-PC to its predicted target address
 static unordered_map<uint32_t, uint32_t> BTB;
-bool branchPrediction; 
+bool branchPrediction;
 uint32_t predictedPc;
 // Branch History Table: maps branch-PC to last outcome (true = taken, false = not taken)
 static unordered_map<uint32_t, bool> BHT;
 
-
 // Helper to test if an opcode corresponds to a branch/jump
-inline bool isBranchOpcode(uint32_t opcode) {
+inline bool isBranchOpcode(uint32_t opcode)
+{
     return opcode == 0x63    // BEQ, BNE, BLT, BGE
-        || opcode == 0x6F    // JAL
-        || opcode == 0x67    // JALR
+           || opcode == 0x6F // JAL
+           || opcode == 0x67 // JALR
         ;
 }
 
@@ -53,10 +53,10 @@ bool KNOB_PRINT_BP = false;  // knob6  --not implemented
 
 // ─── STAT COUNTERS ───────────────────────────────────────────────────
 uint64_t stat_cycles = 0;
-uint64_t stat_instructions = 0; //implemented
-uint64_t stat_data_transfers = 0; //implemented
-uint64_t stat_alu_instructions = 0; //implemented
-uint64_t stat_control_instructions = 0; //implemented
+uint64_t stat_instructions = 0;         // implemented
+uint64_t stat_data_transfers = 0;       // implemented
+uint64_t stat_alu_instructions = 0;     // implemented
+uint64_t stat_control_instructions = 0; // implemented
 uint64_t stat_stalls = 0;
 uint64_t stat_data_hazards = 0;
 uint64_t stat_control_hazards = 0;
@@ -101,7 +101,7 @@ struct ID_EX
 {
     int alu_input1, alu_input2, rd;
     int32_t imm = 0;
- 
+
     bool branch = false;
     int rs2;
     int alu_signal;
@@ -211,7 +211,7 @@ uint32_t ALU(int val1, int val2, int OP)
     }
     else if (OP == 13)
     {
-        
+
         return buffer2.branch = (val1 == val2);
     }
     else if (OP == 14)
@@ -311,40 +311,38 @@ unordered_map<string, string> uTypeInstructions = {
 unordered_map<string, string> ujTypeInstructions = {
     {"1101111", "JAL"}};
 
-
-
-    int IAG()
+int IAG()
+{
+    if (branchPrediction)
     {
-        if (branchPrediction)
-        {
-           cout << "\033[1;32m## BRANCH PREDICTION ##\033[0m" << endl;
-            return global_pc = predictedPc;
-        }
-        else if (!buffer3.branch && (global_pc / 4 < InstructionPCPairs.size()))
-        {
-            // cout << "IAG Call; new PC: 0x" <<hex<< global_pc + 4 <<dec<< endl;
-            return global_pc = global_pc + 4;
-        }
-        else if(buffer3.ra)
-        {
-            cout<<"JALR"<<endl;
-            // cout << "IAG Call; new PC: " << RegFile[buffer3.ra] + buffer3.imm << endl;
-            buffer3.flush = true;
-            return global_pc = RegFile[buffer3.ra] + buffer3.imm-8;
-        }
-        
-        else if(buffer3.branch)  
-        {
-            cout<<"NORMAL BRANCHES "<<endl;
-            buffer3.flush = true;
-            // cout << "IAG Call; new PC: " << global_pc + buffer3.imm << endl;
-            return global_pc = global_pc + buffer3.imm-8;
-        }
-        else{
-            return global_pc;
-        }
-       
+        cout << "\033[1;32m## BRANCH PREDICTION ##\033[0m" << endl;
+        return global_pc = predictedPc;
     }
+    else if (!buffer3.branch && (global_pc / 4 < InstructionPCPairs.size()))
+    {
+        // cout << "IAG Call; new PC: 0x" <<hex<< global_pc + 4 <<dec<< endl;
+        return global_pc = global_pc + 4;
+    }
+    else if (buffer3.ra)
+    {
+        cout << "JALR" << endl;
+        // cout << "IAG Call; new PC: " << RegFile[buffer3.ra] + buffer3.imm << endl;
+        buffer3.flush = true;
+        return global_pc = RegFile[buffer3.ra] + buffer3.imm - 8;
+    }
+
+    else if (buffer3.branch)
+    {
+        cout << "NORMAL BRANCHES " << endl;
+        buffer3.flush = true;
+        // cout << "IAG Call; new PC: " << global_pc + buffer3.imm << endl;
+        return global_pc = global_pc + buffer3.imm - 8;
+    }
+    else
+    {
+        return global_pc;
+    }
+}
 
 Instruction decodeRType(uint32_t instruction, vector<PipelineStage> &pipeline)
 {
@@ -375,7 +373,7 @@ Instruction decodeRType(uint32_t instruction, vector<PipelineStage> &pipeline)
         buffer2.alu_input2 = RegFile[curr.rs2];
         buffer2.rd = curr.rd;
         buffer2.rs2 = curr.rs2;
-        buffer2.branch=false;
+        buffer2.branch = false;
         bool stall = false;
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
@@ -462,7 +460,7 @@ Instruction decodeIType(uint32_t instruction, vector<PipelineStage> &pipeline)
         buffer2.stall = false;
         buffer2.alu_input1 = RegFile[curr.rs1];
         buffer2.alu_input2 = curr.imm;
-        buffer2.branch=false;
+        buffer2.branch = false;
         if (opcode == 0x03)
         {
             buffer2.needs_mem = true;
@@ -522,7 +520,7 @@ Instruction decodeIType(uint32_t instruction, vector<PipelineStage> &pipeline)
             buffer2.alu_input2 = buffer4.mem_output;
         }
 
-        // STATS UPDATE 
+        // STATS UPDATE
         if (curr.op == "LW" || curr.op == "LB" || curr.op == "LH")
             stat_data_transfers++;
         else if (curr.op == "JALR")
@@ -558,7 +556,7 @@ Instruction decodeSType(uint32_t instruction, vector<PipelineStage> &pipeline)
         buffer2.needs_mem = true;
         buffer2.read = false;
         buffer2.write = true;
-        buffer2.branch=false;
+        buffer2.branch = false;
         buffer2.blocks = 1 << funct3;
         curr = {instruction, "EX", "MEM", sTypeInstructions[key], -1, regNums[rs1], regNums[rs2], imm};
         buffer2.alu_signal = operationMap[curr.op];
@@ -709,7 +707,7 @@ Instruction decodeUType(uint32_t instruction, vector<PipelineStage> &pipeline)
         curr = {instruction, "", "", uTypeInstructions[key], regNums[rd], -1, -1, imm};
         buffer2.rs2 = curr.rs2;
         buffer2.alu_signal = operationMap[curr.op];
-        buffer2.branch=false;
+        buffer2.branch = false;
         buffer2.alu_input1 = curr.imm;
         buffer2.alu_input2 = global_pc;
         buffer2.rd = rd;
@@ -844,7 +842,7 @@ Instruction decodeUJType(uint32_t instruction, vector<PipelineStage> &pipeline)
 Instruction decodeInstruction(uint32_t instr, vector<PipelineStage> &pipeline)
 {
     uint32_t opcode = instr & 0x7F;
-    buffer2.pc=global_pc;
+    buffer2.pc = global_pc;
     switch (opcode)
     {
     case 0x33:
@@ -869,64 +867,68 @@ Instruction decodeInstruction(uint32_t instr, vector<PipelineStage> &pipeline)
 
 int Execute()
 {
-    
-    bool branch_inst=buffer2.branch;
+
+    bool branch_inst = buffer2.branch;
     //   cout<<buffer2.alu_input1<<" "<<buffer2.alu_input2<<" "<<buffer2.alu_signal<<endl;
     int val = ALU(buffer2.alu_input1, buffer2.alu_input2, buffer2.alu_signal);
     buffer3.alu_output = val;
-    
+
     // —— Branch‐outcome handling ——
     // buffer3.branch is true if the branch/jump should take
-    if (branch_inst) {
-        cout<<"\tTaken/Not Taken: "<< buffer2.branch<<endl;
-        cout<<"\tPC inst: " <<buffer2.pc<<endl;
+    if (branch_inst)
+    {
+        cout << "\tTaken/Not Taken: " << buffer2.branch << endl;
+        cout << "\tPC inst: " << buffer2.pc << endl;
         uint32_t branchPC = buffer2.pc;
         uint32_t actualTarget;
-        if (buffer2.ra) {
-            actualTarget = RegFile[buffer2.ra] + buffer2.imm; 
-        } else {
+        if (buffer2.ra)
+        {
+            actualTarget = RegFile[buffer2.ra] + buffer2.imm;
+        }
+        else
+        {
             actualTarget = branchPC + buffer2.imm;
         }
 
-        cout<<"\t ++ updating BTB & BHT ++ "<<endl;
+        cout << "\t ++ updating BTB & BHT ++ " << endl;
 
         auto it = BTB.find(buffer2.pc);
-        
-        if(it == BTB.end()){
+
+        if (it == BTB.end())
+        {
             BTB[branchPC] = actualTarget;
             BHT[branchPC] = buffer2.branch;
             pipeline[0].instr = nullptr;
-            stall=true;
+            stall = true;
             pipeline[1].instr = nullptr;
         }
-        else{ 
+        else
+        {
             bool wasTaken = buffer2.branch;
             bool history = (BHT[branchPC]);
-            cout<<"\twasTaken: "<<wasTaken<<endl;
-            cout<<"\thistory: "<<history<<endl;
-            if (history != wasTaken) {
-            // flush IF & ID
-             cout << "\033[1;35m\t-- Wrong Prediction --\033[0m" << endl;
-            pipeline[0].instr = nullptr;
-            stall=true;
-            pipeline[1].instr = nullptr;
-            // correct PC
-            global_pc = wasTaken
-                        ? actualTarget
-                        : (branchPC);
-            cout<<"\tactual pc: "<<global_pc+4<<endl;
-            BHT[branchPC]=wasTaken;
+            cout << "\twasTaken: " << wasTaken << endl;
+            cout << "\thistory: " << history << endl;
+            if (history != wasTaken)
+            {
+                // flush IF & ID
+                cout << "\033[1;35m\t-- Wrong Prediction --\033[0m" << endl;
+                pipeline[0].instr = nullptr;
+                stall = true;
+                pipeline[1].instr = nullptr;
+                // correct PC
+                global_pc = wasTaken
+                                ? actualTarget
+                                : (branchPC);
+                cout << "\tactual pc: " << global_pc + 4 << endl;
+                BHT[branchPC] = wasTaken;
             }
-            else{
+            else
+            {
                 cout << "\033[1;34m\t -- Correct Prediction -- \033[0m" << endl;
-
             }
         }
-
-        
-        
     }
-    
+
     return val;
 }
 
@@ -966,14 +968,12 @@ void MemAccess()
 
 void WriteBack()
 {
-    //cout << buffer4.rd << " " << buffer4.mem_output << endl;
-    if (buffer4.needs_writeback && buffer4.rd!=0)
+    // cout << buffer4.rd << " " << buffer4.mem_output << endl;
+    if (buffer4.needs_writeback && buffer4.rd != 0)
     {
         RegFile[buffer4.rd] = buffer4.mem_output;
     }
 }
-
-
 
 int main()
 {
@@ -1126,7 +1126,7 @@ int main()
                                                                { return st.instr != nullptr; }))
     {
         cout << "\033[1;31m============ Cycle " << ++cycle << " ============\n\033[0m";
-        stall=false;
+        stall = false;
         // ----------- STEP 1: Process Stages from WB to EX first -------------
         if (pipeline[4].instr)
         {
@@ -1147,7 +1147,6 @@ int main()
             cout << "\n**  Execute:    0x" << setfill('0') << setw(8) << hex << pipeline[2].instr->mc << "\n";
             int val = Execute(); // This should read only current state (not updated by Decode)
             cout << "\tVAL " << val << endl;
-            
         }
         buffer3.needs_mem = buffer2.needs_mem;
         buffer3.rd = buffer2.rd;
@@ -1165,69 +1164,70 @@ int main()
         buffer2 = default_buffer2;
 
         // ----------- STEP 2: Hazard Detection & Decode -------------
-        
+
         if (pipeline[1].instr) // ID stage
         {
-            
+
             Instruction &curr = *pipeline[1].instr;
             cout << "\n**  Decode:     0x" << setfill('0') << setw(8) << hex << curr.mc << "\n";
-            uint32_t currPC   = global_pc;
+            uint32_t currPC = global_pc;
             // Decode the instruction and check for hazards
             Instruction decoded = decodeInstruction(curr.mc, pipeline);
             uint32_t opcode = curr.mc & 0x7F;
             curr = decoded;
-            if (isBranchOpcode(opcode)) {
-                cout<<"\tBranch instruction detected!"<<endl;
+            if (isBranchOpcode(opcode))
+            {
+                cout << "\tBranch instruction detected!" << endl;
             }
             stall = buffer2.stall;
             buffer2.pc = buffer1.pc;
             buffer1 = defaultbuffer1;
-
-            
         }
-        cout<<"\tfetch stall: "<<stall<<endl;
-        cout<<"\tglobal pc bool: "<<(global_pc / 4 < InstructionPCPairs.size())<<endl;
+        cout << "\tfetch stall: " << stall << endl;
+        cout << "\tglobal pc bool: " << (global_pc / 4 < InstructionPCPairs.size()) << endl;
         // ----------- STEP 3: Fetch Stage -------------
         if (!stall && global_pc / 4 < InstructionPCPairs.size())
         {
             auto it = BTB.find(global_pc);
-            if(it != BTB.end()){
-                cout<<"\tBTB HIT!"<<endl;
+            if (it != BTB.end())
+            {
+                cout << "\tBTB HIT!" << endl;
             }
             bool predictTaken = (it != BTB.end() && BHT[global_pc]);
-            //print whether successful find or not - if not then populate BTB
-            
-            cout << "\n**  Fetch:      0x" << setfill('0') << setw(8) << hex << InstructionPCPairs[global_pc/4].second << "\n";
+            // print whether successful find or not - if not then populate BTB
+
+            cout << "\n**  Fetch:      0x" << setfill('0') << setw(8) << hex << InstructionPCPairs[global_pc / 4].second << "\n";
             pipeline[0].instr = new Instruction();
-            pipeline[0].instr->mc = InstructionPCPairs[global_pc/4].second;
+            pipeline[0].instr->mc = InstructionPCPairs[global_pc / 4].second;
             buffer1.pc = global_pc;
             buffer1.instruction = pipeline[0].instr->mc;
-           
-            
-            if(buffer3.flush){
+
+            if (buffer3.flush)
+            {
                 pipeline[0].instr = nullptr;
                 pipeline[1].instr = nullptr;
                 buffer2 = default_buffer2;
             }
-            if (predictTaken) {
-                branchPrediction=true;
-                predictedPc = it->second; 
-               // redirect fetch
+            if (predictTaken)
+            {
+                branchPrediction = true;
+                predictedPc = it->second;
+                // redirect fetch
             }
-            else{
-                branchPrediction=false;
+            else
+            {
+                branchPrediction = false;
             }
-            
         }
-            IAG();
-            cout<<"NEW PC IS: "<<global_pc<<endl;
+        IAG();
+        cout << "NEW PC IS: " << global_pc << endl;
         // ----------- STEP 4: Pipeline Register Update -------------
         if (stall)
         {
             // Insert bubble into EX, keep ID and IF stages
-            pipeline[4] = pipeline[3]; // MEM → WB
-            pipeline[3] = pipeline[2]; // EX → MEM
-            pipeline[2].instr = nullptr;  // EX becomes bubble
+            pipeline[4] = pipeline[3];   // MEM → WB
+            pipeline[3] = pipeline[2];   // EX → MEM
+            pipeline[2].instr = nullptr; // EX becomes bubble
 
             // Revert PC if an instruction was fetched in this cycle
             if (pipeline[0].instr != nullptr)
@@ -1294,8 +1294,9 @@ DUMP_STATS:
     for (int i = 0; i < 31; i++)
         cout << i << " " << RegFile[i] << endl;
     cout << "\033[1;36m+--------------------\033[0m" << endl;
-    //print BTB and BH
-    cout<<"\n"<<endl;
+    // print BTB and BH
+    cout << "\n"
+         << endl;
     cout << "=== BTB === " << endl;
     for (auto it : BTB)
     {
@@ -1306,6 +1307,6 @@ DUMP_STATS:
     {
         cout << "PC: " << hex << it.first << " Taken: " << it.second << endl;
     }
-    
+
     return 0;
 }
