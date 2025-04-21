@@ -17,7 +17,7 @@
 using namespace std;
 
 bool knob1 = true;  // Knob1: Enable/disable pipelining
-bool knob2 = true; // Knob2: Enable/disable data forwarding
+bool knob2 = true;  // Knob2: Enable/disable data forwarding
 bool knob3 = false; // Knob3: Print register file each cycle
 bool knob4 = false; // Knob4: Print pipeline‑register info each cycle
 bool knob5 = false; // Knob5: Trace a specific instruction
@@ -71,7 +71,7 @@ void MemAccessforDataSeg(int size, int value, int eff)
         MainMemory[eff + i] = static_cast<uint8_t>(value & 0xFF); // Extract lowest 8 bits
         value >>= 8;                                              // Shift right to get next byte
 
-        cout << "MainMemory[" << hex << eff + i << "] = " << MainMemory[eff + i] << endl;
+        cout << "MainMemory[0x" << hex << eff + i << "] = " << MainMemory[eff + i] << dec << endl;
     }
 }
 
@@ -248,7 +248,7 @@ int IAG(uint32_t curr_pc, bool usual = false)
         // if present in BTB
         if (branchPrediction)
         {
-            cout << "CURRENT_PC : " << curr_pc << endl;
+            cout << "CURRENT_PC : 0x" << hex << curr_pc << endl;
             cout << "\033[1;32m## BRANCH PREDICTION ##\033[0m" << endl;
             return global_pc = BHT[curr_pc] == 1 ? BTB[curr_pc] : curr_pc + 4;
         }
@@ -346,15 +346,17 @@ Instruction decodeRType(uint32_t instruction, vector<PipelineStage> &pipeline)
         bool stall = false;
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
-            if (!knob2){
+            if (!knob2)
+            {
                 buffer2.stall = 2;
-                statStalls+=2;
-                statStallsData+=2;
+                statStalls += 2;
+                statStallsData += 2;
             }
-            else{
+            else
+            {
                 buffer2.stall = 1;
-                statStalls+=1;
-                statStallsData+=1;
+                statStalls += 1;
+                statStallsData += 1;
             }
             ++statDataHazards;
         }
@@ -376,9 +378,9 @@ Instruction decodeRType(uint32_t instruction, vector<PipelineStage> &pipeline)
         }
         if (!knob2 && (curr.dependent_rs1 || curr.dependent_rs2))
             buffer2.stall = 2;
-            statStalls+=2;
-            statStallsData+=2;
-            statDataHazards+=1;
+        statStalls += 2;
+        statStallsData += 2;
+        statDataHazards += 1;
 
         if (knob2)
         {
@@ -466,15 +468,17 @@ Instruction decodeIType(uint32_t instruction, vector<PipelineStage> &pipeline)
         }
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
-            if (!knob2){
+            if (!knob2)
+            {
                 buffer2.stall = 2;
-                statStalls+=2;
-                statStallsData+=2;
+                statStalls += 2;
+                statStallsData += 2;
             }
-            else{
+            else
+            {
                 buffer2.stall = 1;
-                statStalls+=1;
-                statStallsData+=1;
+                statStalls += 1;
+                statStallsData += 1;
             }
             ++statDataHazards;
         }
@@ -499,9 +503,9 @@ Instruction decodeIType(uint32_t instruction, vector<PipelineStage> &pipeline)
         if (!knob2 && (curr.dependent_rs1 || curr.dependent_rs2))
         {
             buffer2.stall = 2;
-            statStalls+=2;
-            statStallsData+=2;
-            statDataHazards+=1;
+            statStalls += 2;
+            statStallsData += 2;
+            statDataHazards += 1;
         }
         if (knob2)
         {
@@ -567,15 +571,17 @@ Instruction decodeSType(uint32_t instruction, vector<PipelineStage> &pipeline)
         bool stall = false;
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
-            if (!knob2){
+            if (!knob2)
+            {
                 buffer2.stall = 2;
-                statStalls+=2;
-                statStallsData+=2;
+                statStalls += 2;
+                statStallsData += 2;
             }
-            else{
+            else
+            {
                 buffer2.stall = 1;
-                statStalls+=1;
-                statStallsData+=1;
+                statStalls += 1;
+                statStallsData += 1;
             }
             ++statDataHazards;
         }
@@ -600,9 +606,9 @@ Instruction decodeSType(uint32_t instruction, vector<PipelineStage> &pipeline)
         if (!knob2 && (curr.dependent_rs1 || curr.dependent_rs2))
         {
             buffer2.stall = 2;
-            statStalls+=2;
-            statStallsData+=2;
-            statDataHazards+=1;
+            statStalls += 2;
+            statStallsData += 2;
+            statDataHazards += 1;
         }
         if (knob2)
         {
@@ -663,15 +669,17 @@ Instruction decodeSBType(uint32_t instruction, vector<PipelineStage> &pipeline)
         bool stall = false;
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
-            if (!knob2){
+            if (!knob2)
+            {
                 buffer2.stall = 2;
-                statStalls+=2;
-                statStallsData+=2;
+                statStalls += 2;
+                statStallsData += 2;
             }
-            else{
+            else
+            {
                 buffer2.stall = 1;
-                statStalls+=1;
-                statStallsData+=1;
+                statStalls += 1;
+                statStallsData += 1;
             }
             ++statDataHazards;
         }
@@ -696,9 +704,9 @@ Instruction decodeSBType(uint32_t instruction, vector<PipelineStage> &pipeline)
         if (!knob2 && (curr.dependent_rs1 || curr.dependent_rs2))
         {
             buffer2.stall = 2;
-            statStalls+=2;
-            statStallsData+=2;
-            statDataHazards+=1;
+            statStalls += 2;
+            statStallsData += 2;
+            statDataHazards += 1;
         }
         if (knob2)
         {
@@ -749,15 +757,17 @@ Instruction decodeUType(uint32_t instruction, vector<PipelineStage> &pipeline)
         bool stall = false;
         if (pipeline[2].instr && loadUseHazard(curr, *pipeline[2].instr))
         {
-            if (!knob2){
+            if (!knob2)
+            {
                 buffer2.stall = 2;
-                statStalls+=2;
-                statStallsData+=2;
+                statStalls += 2;
+                statStallsData += 2;
             }
-            else{
+            else
+            {
                 buffer2.stall = 1;
-                statStalls+=1;
-                statStallsData+=1;
+                statStalls += 1;
+                statStallsData += 1;
             }
             ++statDataHazards;
         }
@@ -782,10 +792,9 @@ Instruction decodeUType(uint32_t instruction, vector<PipelineStage> &pipeline)
         if (!knob2 && (curr.dependent_rs1 || curr.dependent_rs2))
         {
             buffer2.stall = 2;
-            statStalls+=2;
-            statStallsData+=2;
-            statDataHazards+=1;
-
+            statStalls += 2;
+            statStallsData += 2;
+            statDataHazards += 1;
         }
         if (knob2)
         {
@@ -995,7 +1004,7 @@ int Execute()
                     buffer3.flush = true;
                     branchPrediction = false;
                     IAG_CALLED = true;
-                    cout << "wrong prediction in execute" << endl;
+                    cout << "Wrong prediction in Execute" << endl;
                     cout << current_pc << endl;
                     IAG(current_pc); // called again to get the correct address
                 }
@@ -1042,8 +1051,8 @@ int Execute()
                     buffer3.flush = true;
                     branchPrediction = false;
                     IAG_CALLED = true;
-                    cout << "wrong prediction in execute" << endl;
-                    cout << current_pc << endl;
+                    cout << "Wrong prediction in execute" << endl;
+                    cout << "Current PC : 0x" << hex << current_pc << dec << endl;
                     IAG(current_pc); // called again to get the correct address
                 }
                 else
@@ -1058,11 +1067,11 @@ int Execute()
                 BTB[current_pc] = current_pc + buffer2.imm;
                 cout << BTB[current_pc] << endl;
                 cout << "buffer3.is_branching: " << buffer3.is_branching << endl;
-                cout << "global pc : " << global_pc << endl;
+                cout << "global pc : 0x" << hex << global_pc << dec << endl;
                 if (buffer3.is_branching)
                 {
                     IAG_CALLED = true;
-                    cout << "is branching in execute" << endl;
+                    cout << "Is branching in execute" << endl;
                     IAG(current_pc);
                     buffer3.flush = true;
                     pipeline[1].instr = nullptr;
@@ -1120,7 +1129,7 @@ void MemAccess()
                 cout << "RegFile[buffer3.rs2] " << store << endl;
                 MainMemory[buffer3.alu_output + i] = static_cast<uint8_t>(store & 0xFF); // Extract lowest 8 bits
                 store >>= 8;                                                             // Shift right to get next byte
-                cout << "Writing to memory address: " << hex << (buffer3.alu_output + i) << " value: " << MainMemory[buffer3.alu_output + i] << endl;
+                cout << "Writing to memory address: 0x" << hex << (buffer3.alu_output + i) << " value: 0x" << MainMemory[buffer3.alu_output + i] << dec << endl;
             }
         }
     }
@@ -1328,7 +1337,7 @@ int main()
     cout << "Memory" << endl;
     for (auto it = MainMemory.begin(); it != MainMemory.end(); it++)
     {
-        cout << hex << "0x"<<it->first << " : 0x" << it->second <<dec<< endl;
+        cout << hex << "0x" << it->first << " : 0x" << it->second << dec << endl;
     }
 
     Instruction nop; // represents a bubble (NOP)
@@ -1346,7 +1355,7 @@ int main()
         // ----------- STEP 1: Process Stages from WB to EX first -------------
         if (pipeline[4].instr)
         {
-            cout << "\n**  WriteBack:  0x" << setfill('0') << setw(8) << hex << pipeline[4].instr->mc << "\n";
+            cout << "\n**  WriteBack:  0x" << setfill('0') << setw(8) << hex << pipeline[4].instr->mc << dec << "\n";
             WriteBack();
             // ── Stat2 & categorize ────────────────────────────────────────
             ++statInstCount;
@@ -1363,7 +1372,7 @@ int main()
         }
         if (pipeline[3].instr)
         {
-            cout << "\n**  MemAccess:  0x" << setfill('0') << setw(8) << hex << pipeline[3].instr->mc <<dec<< "\n";
+            cout << "\n**  MemAccess:  0x" << setfill('0') << setw(8) << hex << pipeline[3].instr->mc << dec << "\n";
             MemAccess();
             buffer4.rd = buffer3.rd;
             buffer4.needs_writeback = buffer3.needs_writeback;
@@ -1372,7 +1381,7 @@ int main()
         }
         if (pipeline[2].instr)
         {
-            cout << "\n**  Execute:    0x" << setfill('0') << setw(8) << hex << pipeline[2].instr->mc <<dec<< "\n";
+            cout << "\n**  Execute:    0x" << setfill('0') << setw(8) << hex << pipeline[2].instr->mc << dec << "\n";
             int val = Execute(); // This should read only current state (not updated by Decode)
             cout << "\tVAL " << val << endl;
         }
@@ -1407,7 +1416,7 @@ int main()
 
             buffer2.pc = buffer1.pc;
             Instruction &curr = *pipeline[1].instr;
-            cout << "\n**  Decode:     0x" << setfill('0') << setw(8) << hex << curr.mc << "\n";
+            cout << "\n**  Decode:     0x" << setfill('0') << setw(8) << hex << curr.mc << dec << "\n";
             uint32_t currPC = global_pc;
             // Decode the instruction and check for hazards
             Instruction decoded = decodeInstruction(curr.mc, pipeline);
@@ -1438,7 +1447,7 @@ int main()
 
             // print whether successful find or not - if not then populate BTB
 
-            cout << "\n**  Fetch:      0x" << setfill('0') << setw(8) << hex << InstructionPCPairs[curr_pc / 4].second << "\n";
+            cout << "\n**  Fetch:      0x" << setfill('0') << setw(8) << hex << InstructionPCPairs[curr_pc / 4].second << dec << "\n";
             pipeline[0].instr = new Instruction();
             pipeline[0].instr->mc = InstructionPCPairs[curr_pc / 4].second;
             buffer1.pc = curr_pc;
@@ -1472,7 +1481,6 @@ int main()
         }
         else
         {
-            cout << "in here" << endl;
             // Normal pipeline advancement
             pipeline[4] = pipeline[3];   // MEM → WB
             pipeline[3] = pipeline[2];   // EX → MEM
@@ -1487,11 +1495,10 @@ int main()
         }
         else if (!IAG_CALLED)
         {
-            cout << "not my first time" << endl;
             IAG(curr_pc, true);
         }
 
-        cout << "NEW PC IS: 0x" <<hex<< global_pc << dec<<endl;
+        cout << "NEW PC IS: 0x" << hex << global_pc << dec << endl;
         cout << "Reg[5]: " << RegFile[5] << endl;
         cout << "Reg[6]: " << RegFile[6] << endl;
         cout << "Reg[11]: " << RegFile[11] << endl;
@@ -1501,7 +1508,7 @@ int main()
         cout << "Memory" << endl;
         for (auto it = MainMemory.begin(); it != MainMemory.end(); it++)
         {
-            cout << hex<<"0x" << it->first << " : 0x" << it->second <<dec<< endl;
+            cout << hex << "0x" << it->first << " : 0x" << it->second << dec << endl;
         }
         cout << "\n"
              << endl;
