@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RISC-V Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117;
+            color: #e6edf3;
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .glass {
+            background: rgba(13, 17, 23, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .neon-glow {
+            box-shadow: 0 0 10px #00bfff, 0 0 20px #00bfff;
+        }
+        .hover-glow:hover {
+            box-shadow: 0 0 15px #00bfff, 0 0 30px #00bfff;
+            transition: all 0.3s ease;
+        }
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .sticky-footer {
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+        }
+        /* Hide number input arrows */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        .input-error {
+            border-color: #ef4444 !important;
+            animation: shake 0.5s;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .pipeline-stage {
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            margin: 0.25rem;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+        }
+        .stage-fetch { background-color: rgba(52, 152, 219, 0.2); }
+        .stage-decode { background-color: rgba(46, 204, 113, 0.2); }
+        .stage-execute { background-color: rgba(155, 89, 182, 0.2); }
+        .stage-memory { background-color: rgba(241, 196, 15, 0.2); }
+        .stage-writeback { background-color: rgba(231, 76, 60, 0.2); }
+        .stage-message { background-color: rgba(52, 73, 94, 0.2); }
+        
+        .register-table {
+            position: fixed;
+            right: -100%;
+            top: 0;
+            height: 100vh;
+            width: 33.333%;
+            transition: right 0.3s ease-in-out;
+            z-index: 20;
+            overflow-y: auto;
+            background: linear-gradient(135deg, rgba(22, 27, 34, 0.95) 0%, rgba(22, 27, 34, 0.98) 100%);
+            border-left: 1px solid rgba(30, 144, 255, 0.3);
+            box-shadow: 
+                -5px 0 15px rgba(0, 0, 0, 0.3),
+                inset 0 0 20px rgba(30, 144, 255, 0.1);
+        }
+        
+        .register-table.show {
+            right: 0;
+            box-shadow: 
+                -5px 0 15px rgba(0, 0, 0, 0.3),
+                inset 0 0 20px rgba(30, 144, 255, 0.1),
+                0 0 30px rgba(30, 144, 255, 0.2);
+        }
+        
+        .register-table > div {
+            min-height: 100vh;
+            padding-bottom: 2rem;
+            border-left: 1px solid rgba(30, 144, 255, 0.1);
+        }
+
+        /* Add a subtle hover effect to the close button */
+        .register-table .fa-times {
+            transition: all 0.3s ease;
+            padding: 8px;
+            border-radius: 50%;
+            background: rgba(30, 144, 255, 0.1);
+        }
+
+        .register-table .fa-times:hover {
+            background: rgba(30, 144, 255, 0.2);
+            transform: rotate(90deg);
+        }
+        
+        .hamburger-btn {
+            position: fixed;
+            right: 1rem;
+            top: 1rem;
+            z-index: 30;
+            cursor: pointer;
+            padding: 0.5rem;
+            background: rgba(30, 144, 255, 0.2);
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+    <!-- Control Panel (Top) -->
+    <div class="sticky-header w-full flex items-center justify-between px-4 py-4 bg-[#0d1117] backdrop-blur">
+        <!-- Left spacer -->
+        <div class="w-[200px]"></div>
+        
+        <!-- Centered Control Buttons -->
+        <div class="flex justify-center gap-4">
+            <button id="runAuto" class="px-6 py-2 bg-[#1e90ff] hover:bg-[#63b3ed] rounded-full hover-glow transition-all">
+                Run
+            </button>
+            <button  id="runStep" class="px-6 py-2 bg-[#1e90ff] hover:bg-[#63b3ed] rounded-full hover-glow transition-all">
+                Step
+            </button>
+            <a href="/">
+            <button class="px-6 py-2 bg-[#1e90ff] hover:bg-[#63b3ed] rounded-full hover-glow transition-all">
+               Back to Editor
+            </button>
+            </a>
+        </div>
+        
+        <!-- Right Section -->
+        <div class="flex items-center gap-4 w-[250px] justify-end">
+            <!-- Cycle Time Input -->
+            <div class="flex items-center gap-2">
+                <span class="text-sm text-gray-400">Cycle Time:</span>
+                <div class="flex items-center border border-gray-700 rounded-lg overflow-hidden">
+                    <input type="number" 
+                           id="cycleTimeInput"
+                           min="100" 
+                           max="1000" 
+                           value="100" 
+                           class="w-20 px-3 py-2 bg-[#161b22] text-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                           placeholder="ms">
+                </div>
+                <span class="text-sm text-gray-400">ms</span>
+            </div>
+
+            <!-- Hamburger Button -->
+            <button class="hamburger-btn">
+                <i class="fas fa-bars text-xl text-blue-400"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 overflow-hidden">
+        <div class="flex h-full">
+            <!-- Left Section (Scrollable) -->
+            <div class="flex-1 overflow-auto">
+                <div class="p-6">
+                    <!-- Machine Code Viewer -->
+                    <div class="bg-[#161b22] rounded-2xl p-4 shadow-md ring-1 ring-blue-500/20">
+                        <h2 class="text-xl font-semibold mb-4 text-blue-400">Machine Code</h2>
+                        <div class="mono">
+                            <div class="grid grid-cols-3 gap-3 text-sm mb-2">
+                                <div class="text-gray-400">Address</div>
+                                <div class="text-gray-400">Machine Code</div>
+                                <div class="text-gray-400">Instruction</div>
+                                <!-- <div class="text-gray-400">Stage</div> -->
+                            </div>
+                            <!-- Sample code lines -->
+                            {% for row in table_data %}
+                            <div class="grid grid-cols-3 gap-3 text-sm">
+                                <div>{{ row.address }}</div>
+                                <div>{{ row.machine_code }}</div>
+                                <div>{{ row.assembly_code }}</div>
+                                <div></div>
+                            </div>
+                            {% endfor %}
+                            <!-- Placeholder when no code is loaded -->
+                            <!-- <div class="text-center text-gray-500 font-mono italic mt-4">🚀 No code loaded</div> -->
+                        </div>
+                    </div>
+
+                    <!-- Console Output -->
+                    <div class="mt-6">
+                        <div class="bg-[#1c1f26]/80 backdrop-blur-sm text-white rounded-xl p-4 shadow-lg ring-1 ring-blue-500/20">
+                            <h2 class="text-xl font-semibold mb-2 text-blue-400">Console Output</h2>
+                            <div class="mono h-96 overflow-y-auto text-sm" id="console" style="white-space: pre-wrap;"> 
+                                <!-- Sample console output -->
+                                <!-- <div>Program loaded successfully</div>
+                                <div>Initializing registers...</div> -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pipeline Stages (Fixed Height) -->
+            <div class="w-[300px] p-4">
+                <div class="bg-[#161b22] rounded-2xl p-3 shadow-md ring-1 ring-blue-500/20 h-full">
+                    <h2 class="text-base  font-semibold mb-2 text-blue-400">Pipeline Stages</h2>
+                    <div class="flex flex-col gap-2 h-[calc(100%-2rem)] overflow-y-auto">
+                        <div class="pipeline-stage stage-fetch flex-1 min-h-[60px]">
+                            <h3 class="text-blue-400 font-semibold text-sm mb-1">Fetch</h3>
+                            <div id="Fetch" class="mono text-xs overflow-y-auto max-h-[calc(100%-1.5rem)]"></div>
+                        </div>
+                        <div class="pipeline-stage stage-decode flex-1 min-h-[60px]">
+                            <h3 class="text-green-400 font-semibold text-sm mb-1">Decode</h3>
+                            <div id="Decode" class="mono text-xs overflow-y-auto max-h-[calc(100%-1.5rem)]"></div>
+                        </div>
+                        <div class="pipeline-stage stage-execute flex-1 min-h-[60px]">
+                            <h3 class="text-purple-400 font-semibold text-sm mb-1">Execute</h3>
+                            <div id="Execute" class="mono text-xs overflow-y-auto max-h-[calc(100%-1.5rem)]"></div>
+                        </div>
+                        <div class="pipeline-stage stage-memory flex-1 min-h-[60px]">
+                            <h3 class="text-yellow-400 font-semibold text-sm mb-1">Memory</h3>
+                            <div id="MemAccess" class="mono text-xs overflow-y-auto max-h-[calc(100%-1.5rem)]"></div>
+                        </div>
+                        <div class="pipeline-stage stage-writeback flex-1 min-h-[60px]">
+                            <h3 id="" class="text-red-400 font-semibold text-sm mb-1">Write Back</h3>
+                            <div id="WriteBack" class="mono text-xs overflow-y-auto max-h-[calc(100%-1.5rem)]"></div>
+                        </div>
+                        <!-- <div class="pipeline-stage stage-message flex-1 min-h-[60px]">
+                            <h3 class="text-gray-400 font-semibold text-sm mb-1">Message</h3>
+                            <div class="mono text-xs overflow-y-auto max-h-[calc(100%-1.5rem)]"></div>
+                        </div> -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sliding Register Table -->
+        <div class="register-table bg-[#161b22] shadow-lg">
+            <div class="bg-[#161b22] rounded-2xl p-4 shadow-md ring-1 ring-blue-500/20 h-full relative">
+                <!-- Close Button -->
+                <button class="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                
+                <!-- Registers Table -->
+                <h2 class="text-xl font-semibold mb-4 text-blue-400">Registers</h2>
+                <div class="mono max-h-[400px] overflow-y-auto">
+                    <div class="grid grid-cols-3 gap-2 text-sm mb-2">
+                        <div class="text-gray-400">Register</div>
+                        <div class="text-gray-400">Value</div>
+                        <div class="text-gray-400">Hex</div>
+                    </div>
+                    <!-- Register rows (x0 to x31) -->
+                    <div id="registersTable" class="space-y-1">
+
+                    </div>
+                </div>
+
+                <!-- BTB Table -->
+                <h2 class="text-xl font-semibold mb-4 mt-8 text-blue-400">Branch Target Buffer (BTB)</h2>
+                <div class="mono max-h-[200px] overflow-y-auto">
+                    <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+                        <div class="text-gray-400">PC</div>
+                        <div class="text-gray-400">Target</div>
+                    </div>
+                    <div id="btbTable" class="space-y-1">
+                        <!-- BTB entries will be populated here -->
+                    </div>
+                </div>
+
+                <!-- BHT Table -->
+                <h2 class="text-xl font-semibold mb-4 mt-8 text-blue-400">Branch History Table (BHT)</h2>
+                <div class="mono max-h-[200px] overflow-y-auto">
+                    <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+                        <div class="text-gray-400">PC</div>
+                        <div class="text-gray-400">Taken</div>
+                    </div>
+                    <div id="bhtTable" class="space-y-1">
+                        <!-- BHT entries will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Main Memory Table -->
+                <h2 class="text-xl font-semibold mb-4 mt-8 text-blue-400">Main Memory</h2>
+                <div class="mono max-h-[200px] overflow-y-auto">
+                    <div class="grid grid-cols-2 gap-2 text-sm mb-2">
+                        <div class="text-gray-400">Address</div>
+                        <div class="text-gray-400">Value</div>
+                    </div>
+                    <div id="memoryTable" class="space-y-1">
+                        <!-- Memory entries will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Knob Toolbar (Bottom) -->
+    <div class="sticky-footer w-full flex items-center gap-4 justify-center py-4 bg-[#0d1117] backdrop-blur">
+        <div class="flex items-center gap-2">
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1e90ff]"></div>
+                <span class="ml-2 text-sm">Pipelining</span>
+            </label>
+        </div>
+        <div class="flex items-center gap-2">
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1e90ff]"></div>
+                <span class="ml-2 text-sm">Data Forwarding</span>
+            </label>
+        </div>
+        <div class="flex items-center gap-2">
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1e90ff]"></div>
+                <span class="ml-2 text-sm">Print Register File</span>
+            </label>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1e90ff]"></div>
+                <span class="ml-2 text-sm">Print Pipeline Buffers</span>
+            </label>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1e90ff]"></div>
+                <span class="ml-2 text-sm">BHT & BTB</span>
+            </label>
+        </div>
+    </div>
+
+    <script>
+        const stageDivs = {
+  Fetch:    document.getElementById('Fetch'),
+  Decode:   document.getElementById('Decode'),
+  Execute:  document.getElementById('Execute'),
+  MemAccess: document.getElementById('MemAccess'),
+  WriteBack: document.getElementById('WriteBack'),
+};
+
+
+        const cycleTimeInput = document.getElementById('cycleTimeInput');
+        const MIN_CYCLE_TIME = 100;
+        const MAX_CYCLE_TIME = 1000;
+        const STEP_SIZE = 50;
+
+        function validateCycleTime() {
+            let value = parseInt(cycleTimeInput.value);
+            if (isNaN(value) || value < MIN_CYCLE_TIME) {
+                cycleTimeInput.value = MIN_CYCLE_TIME;
+                cycleTimeInput.classList.add('input-error');
+                setTimeout(() => cycleTimeInput.classList.remove('input-error'), 500);
+                return false;
+            }
+            if (value > MAX_CYCLE_TIME) {
+                cycleTimeInput.value = MAX_CYCLE_TIME;
+            }
+            return true;
+        }
+
+        function incrementCycleTime() {
+            let value = parseInt(cycleTimeInput.value) || MIN_CYCLE_TIME;
+            value = Math.min(value + STEP_SIZE, MAX_CYCLE_TIME);
+            cycleTimeInput.value = value;
+        }
+
+        function decrementCycleTime() {
+            let value = parseInt(cycleTimeInput.value) || MIN_CYCLE_TIME;
+            value = Math.max(value - STEP_SIZE, MIN_CYCLE_TIME);
+            cycleTimeInput.value = value;
+        }
+
+        // Add event listeners
+        cycleTimeInput.addEventListener('blur', validateCycleTime);
+        cycleTimeInput.addEventListener('input', () => {
+            let value = parseInt(cycleTimeInput.value);
+            if (isNaN(value) || value < MIN_CYCLE_TIME) {
+                cycleTimeInput.classList.add('input-error');
+            } else {
+                cycleTimeInput.classList.remove('input-error');
+            }
+        });
+
+        // Add register table toggle functionality
+        const hamburgerBtn = document.querySelector('.hamburger-btn');
+        const registerTable = document.querySelector('.register-table');
+        const closeBtn = document.querySelector('.register-table .fa-times').parentElement;
+
+        hamburgerBtn.addEventListener('click', () => {
+            registerTable.classList.toggle('show');
+        });
+
+        closeBtn.addEventListener('click', () => {
+            registerTable.classList.remove('show');
+        });
+
+        // Close register table when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!registerTable.contains(e.target) && !hamburgerBtn.contains(e.target)) {
+                registerTable.classList.remove('show');
+            }
+        });
+
+        const socket = io();
+        const runAuto   = document.getElementById('runAuto');
+        const runStep   = document.getElementById('runStep');
+        const consoleDiv = document.getElementById('console');
+        const cycleInput = document.getElementById('cycleTimeInput');
+
+        var counter=0;
+        runAuto.addEventListener('click', () => {
+            if(counter==0){
+                const cycle = cycleInput.value || 0;
+                
+      socket.emit('start_cpp', { cycle_time: cycle, step_mode: 0 });
+      consoleDiv.textContent='';
+            }
+            else{
+                socket.emit('user_command', { cmd: 0 });
+                counter=0;
+            }
+    });
+
+    runStep.addEventListener('click', () => {
+        if(counter==0){
+            const cycle = cycleInput.value || 0;
+            
+      socket.emit('start_cpp', { cycle_time: cycle, step_mode: 1 });
+      consoleDiv.textContent='';
+            counter++;
+        }
+        else{
+            socket.emit('user_command', { cmd: 1 });
+        }
+      
+    });
+
+//     socket.on('console_output', ({ line }) => {
+//       consoleDiv.textContent += line;
+//       consoleDiv.scrollTop = consoleDiv.scrollHeight;
+
+//       const stageMatch = line.match(
+//     /^\*\*\s*(Fetch|Decode|Execute|MemAccess|WriteBack):.*?#\s*([^#]+?)\s*#/
+//   );
+
+//   if (stageMatch) {
+//     const [, stageName, instrText] = stageMatch;
+//     stageDivs[stageName].textContent = instrText;
+//     console.log(instrText);
+//     }
+//     });
+
+
+// Function to update BTB table
+function updateBTBTable(data) {
+    const btbTable = document.getElementById('btbTable');
+    btbTable.innerHTML = '';
+    data.forEach(entry => {
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-2 gap-2 text-sm';
+        row.innerHTML = `
+            <div>${entry.pc}</div>
+            <div>${entry.target}</div>
+        `;
+        btbTable.appendChild(row);
+    });
+}
+
+// Function to update BHT table
+function updateBHTTable(data) {
+    const bhtTable = document.getElementById('bhtTable');
+    bhtTable.innerHTML = '';
+    data.forEach(entry => {
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-2 gap-2 text-sm';
+        row.innerHTML = `
+            <div>${entry.pc}</div>
+            <div>${entry.taken}</div>
+        `;
+        bhtTable.appendChild(row);
+    });
+}
+
+// Function to update Memory table
+function updateMemoryTable(data) {
+    const memoryTable = document.getElementById('memoryTable');
+    memoryTable.innerHTML = '';
+    data.forEach(entry => {
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-2 gap-2 text-sm';
+        row.innerHTML = `
+            <div>${entry.address}</div>
+            <div>${entry.value}</div>
+        `;
+        memoryTable.appendChild(row);
+    });
+}
+
+function updateRegistersTable(data) {
+  const tbl = document.getElementById('registersTable');
+  tbl.innerHTML = '';
+  data.forEach(entry => {
+    const row = document.createElement('div');
+    row.className = 'grid grid-cols-3 gap-2 text-sm';
+    row.innerHTML = `
+      <div>${entry.reg}</div>
+      <div>${entry.value}</div>
+      <div>${entry.hex}</div>
+    `;
+    tbl.appendChild(row);
+  });
+}
+
+let currentCycle = null;
+let stageBuffer = {};
+const STAGES = ['Fetch', 'Decode', 'Execute', 'MemAccess', 'WriteBack'];
+
+let currentSection = null;
+
+// temporary buffers for each section
+let btbBuffer = [];
+let bhtBuffer = [];
+let memBuffer = [];
+let regBuffer = [];
+
+// helper: reset all buffers
+function resetBuffers() {
+  btbBuffer = [];
+  bhtBuffer = [];
+  memBuffer = [];
+  regBuffer = [];
+}
+
+function flushStageBuffer() {
+  for (const stage of STAGES) {
+    stageDivs[stage].textContent = stageBuffer[stage] || '';
+  }
+}
+
+socket.on('console_output', ({ line }) => {
+  consoleDiv.textContent += line;
+  consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    // console.log("hi");
+const trimmedLine = line.trim();
+const cycleMatch = line.trim().match(/=+[^=]*Cycle\s+(\w+)[^=]*=+/i);
+
+  if (cycleMatch) {
+    const nextCycle = Number(cycleMatch[1]);
+    console.log("Cycle detected");
+    // If we are already in a cycle, this marks the *end* of it — flush it
+    if (currentCycle !== null) {
+      flushStageBuffer();
+    }
+
+    // Start tracking the new cycle
+    currentCycle = nextCycle;
+    stageBuffer = {}; // Clear buffer for the new cycle
+  }
+
+  const stageMatch = line.match(
+    /^\*\*\s*(Fetch|Decode|Execute|MemAccess|WriteBack):.*?#\s*([^#]+?)\s*#/
+  );
+
+  if (stageMatch && currentCycle !== null) {
+    const [, stageName, instrText] = stageMatch;
+    stageBuffer[stageName] = instrText;
+  }
+
+  if (/.*new\s+pc\s+is.*/i.test(line)) {
+    for (const stage of STAGES) {
+                stageDivs[stage].textContent = stageBuffer[stage] || '';
+        }
+  }
+
+  // trim for matching
+  const t = line.trim();
+
+  // detect headings
+  if (/^===\s*BTB\s*===$/.test(t)) {
+    currentSection = 'BTB';
+    btbBuffer = [];
+    return;
+  }
+  if (/^===\s*BHT\s*===$/.test(t)) {
+    currentSection = 'BHT';
+    bhtBuffer = [];
+    return;
+  }
+  if (/^===\s*MAIN\s+MEMORY\s*===$/.test(t)) {
+    currentSection = 'MEMORY';
+    memBuffer = [];
+    return;
+  }
+  if (/^===\s*REGISTERS\s*===$/.test(t)) {
+    currentSection = 'REGISTERS';
+    for (const stage of STAGES) {
+    stageDivs[stage].textContent ='';
+    }
+    regBuffer = [];
+    return;
+  }
+  // if line starting with "Stats written to" and so on in foun
+  if (/^Stats written to/.test(line)) {
+    currentSection=null;
+    }
+  // if blank or another heading, ignore
+  if (!t) {
+    return;
+  }
+
+  // parse entries based on current section
+  switch (currentSection) {
+    case 'BTB':
+      {
+        // expect lines like "PC: 0x1A2B Target: 0x3C4D"
+        const pcMatch = line.match(/PC:\s*([^\s]+)/);
+        const tgtMatch = line.match(/Target:\s*([^\s]+)/);
+        if (pcMatch && tgtMatch) {
+          btbBuffer.push({
+            pc: pcMatch[1],
+            target: tgtMatch[1]
+          });
+          updateBTBTable(btbBuffer);
+        }
+      }
+      break;
+
+    case 'BHT':
+      {
+        // expect lines like "PC: 0x1A2B Taken: true"
+        const pcMatch = line.match(/PC:\s*([^\s]+)/);
+        const tkMatch = line.match(/Taken:\s*(\w+)/);
+        if (pcMatch && tkMatch) {
+          bhtBuffer.push({
+            pc: pcMatch[1],
+            taken: tkMatch[1]
+          });
+          updateBHTTable(bhtBuffer);
+        }
+      }
+      break;
+
+    case 'MEMORY':
+      {
+        // expect lines like "0x1000  42"
+        const parts = line.trim().split(/\s+/);
+        if (parts.length >= 2) {
+          memBuffer.push({
+            address: parts[0],
+            value: parts[1]
+          });
+          updateMemoryTable(memBuffer);
+        }
+      }
+      break;
+
+      case 'REGISTERS':
+      {
+        // each line is e.g. "a :1" or "10 78"
+        const parts = t.split(/\s+/);
+        if (parts.length >= 2) {
+          // register index comes in hex (0,1,2,…,a,b,…,1e,…)
+          const idx = parts[0];
+        
+          const val = parseInt(parts[1].slice(1), 10);
+          // format as 32-bit hex
+          const hex = '0x' + (val >>> 0).toString(16).padStart(8, '0');
+          regBuffer.push({
+            reg: idx,
+            value: val,
+            hex: hex
+          });
+        //   console.log(regBuffer);
+          updateRegistersTable(regBuffer);
+        }
+      }
+      break;
+
+  }
+});
+
+
+    </script>
+</body>
+</html> 

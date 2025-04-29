@@ -1,0 +1,26 @@
+TestCase1: addi x5 x0 6
+addi x6 x0 1
+jal x1 factorial
+beq x0 x0 exit
+factorial:
+addi x2 x2 -8
+sw x1 0 x2
+sw x5 4 x2
+beq x5 x6 base
+
+addi x5 x5 -1
+jal x1 factorial
+lw x7 4 x2
+mul x5 x5 x7
+lw x1 0 x2
+addi x2 x2 8
+jalr x0 x1 0
+
+base:
+addi x5 x0 1
+lw x1 0 x2
+addi x2 x2 8
+jalr x0 x1 0
+
+
+exit:

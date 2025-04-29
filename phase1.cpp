@@ -19,7 +19,7 @@ vector<pair<unsigned int, string>> instructions_sample;
 map<string, unsigned int> labels_sample;
 unsigned int pcsample = 0x0; // Starting program counter
 string OVERALLINPUTFILE = "input.asm";
-string OVERALLOUTPUTFILE = "output.mc";
+string OVERALLOUTPUTFILE = "input.mc";
 string processedfile = "refined_code.asm";
 // Function to check if a line is an instruction (not .data, labels, or empty lines)
 int lineType(const string &line)
@@ -1053,7 +1053,7 @@ int main()
     std::ofstream outputFileCopy(OVERALLOUTPUTFILE, std::ios::app);
     if (!outputFileCopy)
     {
-        std::cerr << "Error: Cannot open output.mc (check permissions)" << std::endl;
+        std::cerr << "Error: Cannot open input.mc (check permissions)" << std::endl;
         return 1;
     }
 
@@ -1073,7 +1073,7 @@ int main()
     }
     else
     {
-        std::cout << "Data from output.txt has been appended to output.mc successfully!" << std::endl;
+        std::cout << "Data from output.txt has been appended to input.mc successfully!" << std::endl;
     }
 
     // Close files
