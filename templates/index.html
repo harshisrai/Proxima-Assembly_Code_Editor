@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Proxima Studio</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/codemirror.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/theme/dracula.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/theme/solarized.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/addon/fold/foldgutter.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/addon/hint/show-hint.css"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="{{ url_for('static', filename='css/styles.css') }}"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="dark">
+    <div id="app" class="flex flex-col h-screen bg-background">
+      <!-- Header -->
+      <header
+        class="border-b border-border p-4 flex justify-between items-center bg-card"
+      >
+        <div class="flex items-center space-x-2">
+          <!-- <div class="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> -->
+          <!-- <path d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /> -->
+          <!-- </svg> -->
+          <!-- </div> -->
+          <h1 class="text-xl font-bold">Proxima Studio</h1>
+        </div>
+        <div class="flex items-center space-x-4">
+          <input
+            type="file"
+            id="fileInput"
+            accept=".txt"
+            style="display: none"
+          />  
+          <button class="btn-outline" id="importBtn">
+            <span class="icon">📤</span>
+            Import
+          </button>
+          <button class="btn-outline" id="saveBtn">
+            <span class="icon">💾</span>
+            Save
+          </button>
+          <button class="btn-outline" id="assemble-btn">
+            <span class="icon">🦾</span>
+            Assemble
+          </button>
+          <!-- <button class="btn-primary" id="run-btn" onclick="startStream()">
+            <span class="icon">▶️</span>
+            Unpipelined
+          </button> -->
+            <a href="/pipelined">
+          <button class="btn-primary" id="assemble-btn">
+            <span class="icon">▶️</span>
+            Pipelined
+          </button>
+          </a>
+          <button class="btn-ghost" id="theme-toggle">
+            <span class="icon">🌞</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <div class="flex flex-1 overflow-hidden">
+        <!-- Editor Pane -->
+        <div
+          id="editor-container"
+          class="w-1/2 border-r border-border flex flex-col"
+        >
+          <div
+            class="p-2 bg-muted/50 border-b border-border flex items-center justify-between"
+          >
+            <div class="font-medium">main.s</div>
+            <div class="flex space-x-1">
+              <div class="w-3 h-3 rounded-full bg-red-500"></div>
+              <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+              <div class="w-3 h-3 rounded-full bg-green-500"></div>
+            </div>
+          </div>
+          <div class="flex-1 overflow-hidden">
+            <form id="codeForm" action="/" method="post" class="h-full">
+              <textarea name="code" id="code-editor">{{ code }}</textarea>
+            </form>
+          </div>
+        </div>
+
+        <!-- Resize Handle -->
+        <div
+          id="resize-handle"
+          class="w-1 hover:w-1 hover:bg-primary/30 cursor-col-resize transition-colors"
+        ></div>
+
+        <!-- Output and assemble Pane -->
+        <div id="output-container" class="flex-1 flex flex-col">
+          <div class="border-b border-border">
+            <div class="tabs-list">
+              <button class="tab-trigger active" data-tab="assemble">
+                Assemble
+              </button>
+              <button class="tab-trigger" data-tab="memory">Memory</button>
+              <button class="tab-trigger" data-tab="registers">
+                Registers
+              </button>
+              <button class="tab-trigger" data-tab="output">Output</button>
+            </div>
+          </div>
+          <div class="tabs overflow-auto">
+            <!-- <div class="border-b border-border">
+                        <div class="tabs-list">
+                            <button class="tab-trigger active" data-tab="output">Output</button>
+                            <button class="tab-trigger" data-tab="memory">Memory</button>
+                            <button class="tab-trigger" data-tab="registers">Registers</button>
+                            <button class="tab-trigger" data-tab="assemble">assemble</button>
+                        </div>
+                    </div> -->
+
+            <div class="tab-content overflow-auto" data-tab="output">
+              <div
+                class="output-content overflow-auto h-9/10"
+                id="output"
+              ></div>
+            </div>
+
+            <div class="tab-content" data-tab="memory">
+              <div id="memory-viewer">
+                <div class="flex flex-col h-full">
+                  <div
+                    class="p-3 border-b border-border flex items-center gap-2 bg-card"
+                  >
+                    <input
+                      type="text"
+                      placeholder="Search..."
+                      class="search-input flex-1 px-3 py-1.5 text-sm rounded border border-border"
+                      id="search"
+                      oninput="searchMemory()"
+                    />
+                    <!-- <button class="btn-outline px-3 py-1.5 text-sm"  onclick="searchMemory()">
+                      Search
+                    </button> -->
+
+                    <select
+                      id="display-mode"
+                      style="background: #000"
+                      class="btn"
+                      onchange="updateDisplayMode()"
+                    >
+                      <option value="hex">Hex</option>
+                      <option value="decimal">Decimal</option>
+                      <option value="unsigned">Unsigned</option>
+                      <option value="ascii">ASCII</option>
+                    </select>
+                  </div>
+                  <div
+                    class="min-w-full border-collapse flex-1"
+                    id="memory-content"
+                  >
+                    {% for mem in memory %}
+                    <div class="grid grid-cols-2 p-2 border-b border-gray-700">
+                      <div class="memory-address font-mono">
+                        {{ mem.address }}
+                      </div>
+                      <div class="memory-value font-mono">{{ mem.value }}</div>
+                    </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-content" data-tab="registers">
+              <div id="register-viewer">
+                <div class="flex flex-col h-full">
+                  <div
+                    class="p-3 border-b border-border flex items-center gap-3 bg-card"
+                  >
+                    <h3 class="text-sm font-medium">Register State</h3>
+                    <select
+                      id="display-mode-reg"
+                      style="background: #000"
+                      class="btn"
+                      onchange="updateDisplayModeReg()"
+                    >
+                      <option value="hex">Hex</option>
+                      <option value="decimal">Decimal</option>
+                      <option value="unsigned">Unsigned</option>
+                      <option value="ascii">ASCII</option>
+                    </select>
+                  </div>
+                  <div class="register-grid flex-1 overflow-auto p-3"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-content active" data-tab="assemble" overflow-auto>
+              <div class="assemble-content">
+                <table class="min-w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th class="border p-2 text-left font-medium">Address</th>
+                      <th class="border p-2 text-left font-medium">
+                        Machine Code
+                      </th>
+                      <th class="border p-2 text-left font-medium">
+                        Assembly Code
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-200">
+                    {% for row in table_data %}
+                    <tr>
+                      <td class="border p-2">{{ row.address }}</td>
+                      <td class="border p-2">{{ row.machine_code }}</td>
+                      <td class="border p-2">{{ row.assembly_code }}</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status Bar -->
+      <footer
+        class="border-t border-border px-4 py-1.5 text-xs flex justify-between bg-muted/30"
+      >
+        <div class="flex items-center space-x-4">
+          <div>RISC-V Assembly</div>
+          <div>
+            Lines:
+            <span id="line-count"> 1 </span>
+          </div>
+          <div>Arch: RV32I</div>
+        </div>
+        <div class="flex items-center space-x-2">
+          <div
+            class="w-2 h-2 rounded-full bg-blue-500"
+            id="status-indicator"
+          ></div>
+          <div id="status-text">Ready</div>
+        </div>
+      </footer>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/mode/gas/gas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/addon/selection/active-line.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/addon/comment/comment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/addon/fold/foldcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/addon/fold/foldgutter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/addon/fold/brace-fold.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/addon/fold/comment-fold.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/addon/hint/show-hint.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.0/addon/hint/css-hint.js"></script>
+    <script
+      type="module"
+      src="{{ url_for('static', filename='js/script.js') }}"
+    ></script>
+
+    <script>
+                  let sampleMemory = {{ memory | tojson | safe }};
+                  // console.log(sampleMemory);
+
+                  function renderMemory(filter = "") {
+                        const memoryContent = document.getElementById("memory-content");
+                        const displayMode = document.getElementById("display-mode").value;
+                        memoryContent.innerHTML = "";
+
+                        sampleMemory.forEach(({ address, value }) => {
+                            if (filter && !address.includes(filter) && !value.includes(filter)) return;
+
+                            const formattedValue = formatValue(value, displayMode);
+
+                            const row = document.createElement("div");
+                            row.className = "grid grid-cols-2 p-2 border-b border-gray-700";
+                            row.innerHTML = `<div class='memory-address font-mono'>${address}</div><div class='memory-value font-mono'>${formattedValue}</div>`;
+                            memoryContent.appendChild(row);
+                        });
+                    }
+
+                    function formatValue(value, mode) {
+                        let bytes = value.split(/\s+/).map(v => parseInt(v, 16));
+                        switch (mode) {
+                            case "decimal": return bytes.map(v => (v|0).toString()).join("  ");
+                            case "unsigned": return bytes.map(v => (v >>> 0).toString()).join("  ");
+                            case "ascii": return bytes.map(v => (v >= 32 && v <= 126) ? String.fromCharCode(v) : '.').join("  ");
+                            default: return value;
+                        }
+                    }
+
+                    function searchMemory() {
+                        const query = document.getElementById("search").value.trim().toLowerCase();
+                        renderMemory(query);
+                    }
+
+                    function updateDisplayMode() {
+                        renderMemory();
+                    }
+
+                  let registerMap = new Map([
+              ["x0", "0x00000000"],
+              ["x1", "0x00000000"],
+              ["x2", "0x7FFFFFDC"],
+              ["x3", "0x00000000"],
+              ["x4", "0x00000000"],
+              ["x5", "0x00000000"],
+              ["x6", "0x00000000"],
+              ["x7", "0x00000000"],
+              ["x8", "0x00000000"],
+              ["x9", "0x00000000"],
+              ["x10", "0x00000001"],
+              ["x11", "0x7FFFFFDC"],
+              ["x12", "0x00000000"],
+              ["x13", "0x00000000"],
+              ["x14", "0x00000000"],
+              ["x15", "0x00000000"],
+              ["x16", "0x00000000"],
+              ["x17", "0x00000000"],
+              ["x18", "0x00000000"],
+              ["x19", "0x00000000"],
+              ["x20", "0x00000000"],
+              ["x21", "0x00000000"],
+              ["x22", "0x00000000"],
+              ["x23", "0x00000000"],
+              ["x24", "0x00000000"],
+              ["x25", "0x00000000"],
+              ["x26", "0x00000000"],
+              ["x27", "0x00000000"],
+              ["x28", "0x00000000"],
+              ["x29", "0x00000000"],
+              ["x30", "0x00000000"],
+              ["x31", "0x00000000"]
+            ]);
+
+                  //print registers
+                  const registerViewer = document.querySelector(".register-grid");
+                  //wrap in a function
+                  function renderRegisters_() {
+                    registerViewer.innerHTML = "";
+                    registerMap.forEach((value, key) => {
+                      const registerItem = document.createElement("div");
+                      registerItem.classList.add(...["grid", "grid-cols-2", "p-2", "border-b", "border-gray-700"]);
+                      registerItem.innerHTML = `
+                      <div class="register-name font-mono">${key}</div>
+                      <div class="register-value font-mono">${value}</div>
+                      `;
+                      registerViewer.appendChild(registerItem);
+                    });
+                  }
+
+                  // registerMap.forEach((value, key) => {
+                  //   const registerItem = document.createElement("div");
+                  //   registerItem.classList.add("register-item");
+                  //   registerItem.innerHTML = `
+                  //   <div class="register-name">${key}</div>
+                  //   <div class="register-value" style="color: #4fc3f7">${value}</div>
+                  //   `;
+                  //   registerViewer.appendChild(registerItem);
+                  // });
+
+                  renderRegisters_();
+
+                  // Renders registers with optional filtering.
+      // Renders all registers, optionally filtering by register name/value.
+      function renderRegisters(filter = "") {
+          const registerGrid = document.querySelector(".register-grid");
+          const displayMode = document.getElementById("display-mode-reg").value;
+          registerGrid.innerHTML = "";
+
+          // Convert filter to lowercase for case-insensitive matching.
+          const lowerFilter = filter.toLowerCase();
+
+          for (const [regName, regValue] of registerMap.entries()) {
+            // Skip if filter is set and neither the register name nor its value matches.
+            if (
+              lowerFilter &&
+              !regName.toLowerCase().includes(lowerFilter) &&
+              !regValue.toLowerCase().includes(lowerFilter)
+            ) {
+              continue;
+            }
+
+            // Format the register's value according to the display mode.
+            const formattedValue = formatValueReg(regValue, displayMode);
+
+            // Create a row for this register.
+            const row = document.createElement("div");
+            row.className = " register-item grid grid-cols-2 p-2 border-b border-gray-700";
+
+            row.innerHTML = `
+              <div class='register-name font-mono'>${regName}</div>
+              <div class='register-value font-mono'>${formattedValue}</div>
+            `;
+            registerGrid.appendChild(row);
+          }
+        }
+
+        // Formats a 32-bit hex string based on the selected mode.
+        function formatValueReg(value, mode) {
+          // Strip any existing '0x' from the front, then parse as 32-bit unsigned.
+          const cleanHex = value.replace(/^0x/i, "");
+          const number = parseInt(cleanHex, 16) >>> 0;
+
+          switch (mode) {
+            case "decimal":
+              // Return the decimal representation of the 32-bit value.
+              return (number | 0).toString(10);
+
+            case "unsigned":
+              // Same as decimal, clarifies usage as unsigned.
+              return number.toString(10);
+
+            case "ascii":
+              // Convert the 32-bit number to four bytes, then to ASCII if printable.
+              const paddedHex = number.toString(16).padStart(8, "0");
+              let asciiStr = "";
+              for (let i = 0; i < 8; i += 2) {
+                const byte = parseInt(paddedHex.substr(i, 2), 16);
+                asciiStr += (byte >= 32 && byte <= 126) ? String.fromCharCode(byte) : ".";
+              }
+              return asciiStr;
+
+            default:
+              // For "hex" or any unrecognized mode, return 8-digit hex with "0x" prefix.
+              const hexStr = number.toString(16).toUpperCase().padStart(8, "0");
+              return "0x" + hexStr;
+          }
+        }
+      // Update the display mode by re-rendering the registers.
+      function updateDisplayModeReg() {
+          renderRegisters();
+      }
+
+                  // Get references to the form and button
+                  const form = document.getElementById("codeForm");
+                  const submitButton = document.getElementById("assemble-btn");
+                  // Add an event listener to submit the form when the button is clicked
+                  submitButton.addEventListener("click", function () {
+                    form.submit();
+                  });
+                  function startStream() {
+                    const outputDiv = document.getElementById("output");
+                    outputDiv.innerHTML = ""; // Clear previous output
+                    document.querySelector('[data-tab="output"]').click();
+                    const statusIndicator = document.getElementById("status-indicator");
+                    const statusText = document.getElementById("status-text");
+                    statusIndicator.classList.remove("bg-blue-500");
+                    statusIndicator.classList.add("bg-green-500", "animate-pulse");
+                    statusText.textContent = "Running...";
+
+                    fetch("/stream")
+                      .then((response) => {
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder();
+
+                        function readStream() {
+                          return new Promise((resolve) => {
+                            function process() {
+                              reader.read().then(({ done, value }) => {
+                                if (done) {
+                                  resolve(); // Resolve when stream is fully read
+                                  return;
+                                }
+                                let chunk = decoder.decode(value);
+                                let beautifiedChunk = beautifyOutput(chunk);
+                                outputDiv.innerHTML += beautifiedChunk;
+                                outputDiv.scrollTop = outputDiv.scrollHeight;
+                                process(); // Continue reading
+                              });
+                            }
+                            process();
+                          });
+                        }
+
+                        return readStream(); // Return promise to wait for completion
+                      })
+                      .then(() => {
+                        statusIndicator.classList.remove("bg-green-500", "animate-pulse");
+                        statusIndicator.classList.add("bg-blue-500");
+                        statusText.textContent = "Ready";
+                        // Step 1: Convert object to array of [key, value] pairs
+                        sampleMemory.sort((a, b) => {
+        return parseInt(a.address, 16) - parseInt(b.address, 16);
+      });
+                        renderMemory();
+
+      // console.log(sampleMemory);
+                      })
+                      .catch((error) => {
+                        console.error("Error:", error);
+                        statusIndicator.classList.remove("bg-green-500", "animate-pulse");
+                        statusIndicator.classList.add("bg-red-500");
+                        statusText.textContent = "Error";
+                      });
+
+                    // Run button click handler
+                  }
+
+
+
+                  let memline=false;
+                  function beautifyOutput(rawText) {
+
+                  let cycles = rawText.split(/={20,}/).map(c => c.trim()).filter(c => c !== "");
+                  let html = "";
+
+                  cycles.forEach(cycleText => {
+                    const lines = cycleText.split("\n").map(line => line.trim());
+                    let cycleHtml = "";
+                    let stageHtml = "";
+                    let cycleHeader = "";
+
+                    if (lines[0].startsWith("FDEMW Cycle Start:")) {
+                      cycleHeader = `<div class="cycle-header">${lines[0]}</div>`;
+                    }
+
+
+                    lines.forEach(line => {
+                        if (memline || line.startsWith("STARTMEMORY")) {
+                          //print line
+                          // console.log(line);
+                          if(line && line.startsWith("ENDMEMORY")){
+                            memline=false;
+                          }
+                          else if(!line.startsWith("STARTMEMORY")){
+                            memline=true;
+                            const mem = line.split(" ");
+                            const address = mem[0];
+                            // value is concatenated with the rest of the array
+                            const value = mem.slice(1).join(" ");
+                            // console.log("MEMORY CHANGE");
+                            // console.log("ADDR:",address, "VAL:",value);
+                            const index = sampleMemory.findIndex(mem => mem.address === address);
+
+            if (index !== -1) {
+                // If address exists, update its value
+                sampleMemory[index].value = value;
+            } else {
+                // If address doesn't exist, add it as a new entry
+                sampleMemory.push({ address, value });
+            }
+
+                            renderMemory();
+                          }//NEXT LINE
+                          else{
+                            memline=true;
+                          }
+                        }
+                        else if (line.startsWith("-----") && line.endsWith("-----")) {
+                        const stageName = line.replace(/^-+|\-+$/g, "").trim();
+                        stageHtml += `<div class="stage-heading">${stageName}</div>`;
+                      } else if(line.startsWith("=====") && line.endsWith("=====")) {
+                        stageHtml += `<div class="stage-content">${line}<br/><br/><br/></div>`;
+                        }
+                        else if (line && line.startsWith("Writing value")) {
+                        stageHtml += `<div class="stage-content">${line}</div>`;
+                        // split line into arr
+                        let arr = line.split(" ");
+                        val=arr[2];
+                        val = val.slice(2);
+                        val = val.padStart(8, '0');
+                        val = "0x" + val;
+                        reg=arr[5];
+                        registerMap.set(reg, val);
+                        renderRegisters();
+                        }
+
+                        else if (line && !line.startsWith("FDEMW Cycle Start:")) {
+                        stageHtml += `<div class="stage-content">${line}</div>`;
+                      }
+                    });
+
+                    cycleHtml = `${cycleHeader}${stageHtml}`;
+                    html += cycleHtml;
+                  });
+
+                  return html;
+                  }
+
+                  form.addEventListener("submit", function (event) {
+                    event.preventDefault(); // Prevent the form from submitting the traditional way
+
+                    const code = document.getElementById("code-editor").value; // Get the code entered by the user
+
+                    // Send the code via AJAX to the server
+                    fetch("/", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({ code }),
+                    })
+                      .then((response) => response.json())
+                      .then((data) => {
+                        console.log("Success:", data);
+                      })
+                      .catch((error) => {
+                        console.error("Error:", error);
+                      });
+                  });
+    </script>
+  </body>
+</html>

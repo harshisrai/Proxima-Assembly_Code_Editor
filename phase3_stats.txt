@@ -1,0 +1,12 @@
+Total cycles: 7
+Instructions executed: 2
+CPI: 3.50
+Load/store instrs: 2
+ALU instrs: 0
+Control instrs: 0
+Total stalls/bubbles: 1
+Data hazards: 1
+Stalls due to data hazards: 1
+Control hazards: 0
+Stalls due to control hazards: 0
+Branch mispredictions: 0

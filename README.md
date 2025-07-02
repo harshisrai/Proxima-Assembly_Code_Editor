@@ -20,42 +20,59 @@ This is the heart of Proxima Studio’s user experience: a clean, responsive RIS
 ![Pipeline Visualizer](ui_pics/pipeline.png)
 Proxima Studio’s cycle-accurate RISC-V pipeline simulation in action. It vividly represents the classic 5-stage pipeline (Fetch, Decode, Execute, Memory, Write Back) with color-coded boxes that track each instruction as it flows through the processor. Users can observe instruction-level parallelism, identify hazards, and control execution step-by-step or in full-run mode. Additional toggles like pipelining, data forwarding, and register visibility enrich the debugging experience, making the learning process both intuitive and insightful.
 
+---
 
+## 📁 Folder & File Structure
 
-## File Structure
-```
-.
-├── inputs/             # Additional input cases
-│   ├── input1.asm
-│   ├── input2.asm
-│   ├── input3.asm
-│   ├── input4.asm
-├── input.asm          # Main input file
-├── main.cpp           # C++ program to process assembly file
-├── output.mc          # Final processed output
-├── output.txt         # Intermediate output file
-├── refined_code.asm   # Refined assembly code
-├── README.md          # Project documentation
-```
+### 🧾 Key Files
 
-## Usage
-### Compilation
-Compile the `main.cpp` file using g++:
-```sh
-g++ main.cpp -o merged.exe
-```
+| File               | Description                                                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `input.asm`        | ✍️ User-written RISC-V assembly code with optional comments.                                                                |
+| `refined_code.asm` | 🧼 Cleaned version of `input.asm` with comments and whitespace removed — ready for machine code conversion.                 |
+| `phase1.cpp`       | 🔧 Initial stage: converts clean RISC-V code into machine code. (Kept for reference from early development.)                |
+| `phase3.cpp`       | 🧠 Main engine: simulates the RISC-V pipeline with runtime toggles for pipelining, data forwarding, branch prediction, etc. |
+| `phase3.exe`       | 🚀 Executable version of the pipeline simulator.                                                                            |
+| `output.txt`       | 📄 Output of the executed pipeline simulation — includes register/memory states or instruction traces.                      |
+| `phase3_stats.txt` | 📊 Performance stats such as stalls, cycles, and CPI collected during execution.                                            |
 
-### Running the Program
-Run the compiled executable:
-```sh
-./merged.exe
-```
-By default, it takes `input.asm` and generates `refined_code.asm`, `output.txt`, and the final output `output.mc`.
+---
 
-## Additional Inputs
-For additional test cases, place the respective `.asm` files inside the `inputs/` folder and modify the program to process them accordingly.
+### 📂 Folder Descriptions
 
-## Requirements
-- C++ Compiler (g++)
-- Assembly knowledge for modifying inputs
+| Folder       | Contents                                                                                                            |
+| ------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `Testcases/` | ✅ Assembly test cases to be loaded into the editor for simulation and validation.                                   |
+| `templates/` | 📑 Optional reusable boilerplate code or UI content.                                                                |
+| `ui_pics/`   | 🖼️ Screenshots used for documentation (e.g., `code_editor.png`, `pipeline.png`).                                   |
+| `static/`    | 📁 Static assets needed for frontend or visualization.                                                              |
+| `phase1/`    | 🧪 First-stage prototype of converting RISC-V assembly to machine code — retained for comparison with later stages. |
 
+---
+
+## 🔄 Workflow
+
+1. **User writes RISC-V assembly code** directly in the web-based code editor.
+2. The system automatically generates `refined_code.asm` by removing comments and unnecessary whitespace.
+3. **Assemble Step**: The refined code is translated into machine code using either `phase1.cpp` (initial prototype) or the more complete `phase3.cpp`.
+4. **Simulate Step**: `phase3.cpp` runs the machine code through a configurable pipeline simulator, producing output in `output.txt` and performance metrics in `phase3_stats.txt`.
+5. The simulation results are displayed in the UI, complete with stage-by-stage instruction flow and toggles for features like pipelining, forwarding, and branch prediction.
+
+---
+
+## 🧪 Testing
+
+To verify functionality:
+
+* Load any file from the `Testcases/` folder.
+* Run through the simulator to inspect execution trace, stalls, and correctness of output.
+
+---
+
+## 📌 Note
+
+The `phase1/` folder reflects our initial implementation and only handles the conversion to machine code. As the project matured, we transitioned to `phase3.cpp` for full simulation features including configurable pipeline behavior.
+
+---
+
+Let me know if you'd like badges, setup instructions, or usage examples added!

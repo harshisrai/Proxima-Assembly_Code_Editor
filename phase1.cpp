@@ -19,7 +19,7 @@ vector<pair<unsigned int, string>> instructions_sample;
 map<string, unsigned int> labels_sample;
 unsigned int pcsample = 0x0; // Starting program counter
 string OVERALLINPUTFILE = "input.asm";
-string OVERALLOUTPUTFILE = "output.mc";
+string OVERALLOUTPUTFILE = "input.mc";
 string processedfile = "refined_code.asm";
 // Function to check if a line is an instruction (not .data, labels, or empty lines)
 int lineType(const string &line)
@@ -396,7 +396,6 @@ string extractInstructionFields(const string &instr)
             throw invalid_argument("I-type expects 2 or 3 operands");
         }
 
-        
         // If we have 3 tokens, convert "imm(rs1)" into separate imm + rs1
         if (tokens.size() == 3)
         {
@@ -583,12 +582,12 @@ int main()
 
     // section to map labels_sample to their addresses in .data section
     getline(inputFileSample, line_sample);
-    while (((line_sample.find('#') != string::npos && line_sample.find(".data") == string::npos) || line_sample.size() == 0)&& getline(inputFileSample, line_sample))
+    while (((line_sample.find('#') != string::npos && line_sample.find(".data") == string::npos) || line_sample.size() == 0) && getline(inputFileSample, line_sample))
         getline(inputFileSample, line_sample);
-    //check if we are at EOF
+    // check if we are at EOF
     if (inputFileSample.eof())
     {
-        //go to start of file
+        // go to start of file
         inputFileSample.clear();
         inputFileSample.seekg(0, ios::beg);
         getline(inputFileSample, line_sample);
@@ -682,7 +681,8 @@ int main()
                 else
                 {
                     itislabel = false;
-                    try{
+                    try
+                    {
                         stoi(label);
                     }
                     catch (...)
@@ -839,7 +839,7 @@ int main()
             }
 
             const auto &info = instructionMap[op];
-            
+
             try
             {
                 uint32_t machine_code = 0;
@@ -1053,7 +1053,7 @@ int main()
     std::ofstream outputFileCopy(OVERALLOUTPUTFILE, std::ios::app);
     if (!outputFileCopy)
     {
-        std::cerr << "Error: Cannot open output.mc (check permissions)" << std::endl;
+        std::cerr << "Error: Cannot open input.mc (check permissions)" << std::endl;
         return 1;
     }
 
@@ -1073,7 +1073,7 @@ int main()
     }
     else
     {
-        std::cout << "Data from output.txt has been appended to output.mc successfully!" << std::endl;
+        std::cout << "Data from output.txt has been appended to input.mc successfully!" << std::endl;
     }
 
     // Close files
