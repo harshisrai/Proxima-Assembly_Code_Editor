@@ -1,0 +1,10 @@
+add x1, x2, x3     # x1 = x2 + x3
+sub x4, x5, x6     # x4 = x5 - x6
+sll x7, x8, x9     # x7 = x8 << x9  (Shift Left Logical)
+slt x10, x11, x12  # x10 = (x11 < x12) ? 1 : 0  (Set Less Than)
+sltu x13, x14, x15 # x13 = (x14 < x15) ? 1 : 0 (Unsigned comparison)
+xor x16, x17, x18  # x16 = x17 ^ x18 (Bitwise XOR)
+srl x19, x20, x21  # x19 = x20 >> x21 (Shift Right Logical)
+sra x22, x23, x24  # x22 = x23 >> x24 (Arithmetic Right Shift)
+or x25, x26, x27   # x25 = x26 | x27 (Bitwise OR)
+and x28, x29, x30  # x28 = x29 & x30 (Bitwise AND)
